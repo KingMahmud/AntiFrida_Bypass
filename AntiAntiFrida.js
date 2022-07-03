@@ -59,7 +59,7 @@ const process_name = getProcessName();
 
 const library_name = "libxyz.so";
 
-Interceptor.replace(pthread_create_ptr, new NativeCallback(function (ptr0, ptr1, ptr2, ptr3) {
+Interceptor.replace(pthread_create_ptr, new NativeCallback(function(ptr0, ptr1, ptr2, ptr3) {
     const lib_base = Module.findBaseAddress(library_name);
     const ptr0_name = getModuleNameFromAddress(ptr0);
     if (ptr0_name == library_name) {
@@ -69,10 +69,10 @@ Interceptor.replace(pthread_create_ptr, new NativeCallback(function (ptr0, ptr1,
     if (ptr1_name == library_name) {
         console.log("Thread created ptr1 : ", ptr1_name, lib_base, ptr1.sub(lib_base));
         Interceptor.attach(lib_base.add(ptr1.sub(lib_base)), {
-            onEnter: function (args) {
+            onEnter: function(args) {
                 console.log("New thread func", ptr1.sub(lib_base), "args : ", args[0], args[1]);
             },
-            onLeave: function (retval) {
+            onLeave: function(retval) {
                 console.log("New thread func return : ", retval);
             }
         });
@@ -81,10 +81,10 @@ Interceptor.replace(pthread_create_ptr, new NativeCallback(function (ptr0, ptr1,
     if (ptr2_name == library_name) {
         console.log("Thread created ptr2 : ", ptr2_name, lib_base, ptr2.sub(lib_base));
         Interceptor.attach(lib_base.add(ptr2.sub(lib_base)), {
-            onEnter: function (args) {
+            onEnter: function(args) {
                 console.log("New thread func", ptr2.sub(lib_base), "args : ", args[0], args[1]);
             },
-            onLeave: function (retval) {
+            onLeave: function(retval) {
                 console.log("New thread func return : ", retval);
             }
         });
@@ -93,10 +93,10 @@ Interceptor.replace(pthread_create_ptr, new NativeCallback(function (ptr0, ptr1,
     if (ptr3_name == library_name) {
         console.log("Thread created ptr3 : ", ptr3_name, lib_base, ptr3.sub(lib_base));
         Interceptor.attach(lib_base.add(ptr3.sub(lib_base)), {
-            onEnter: function (args) {
+            onEnter: function(args) {
                 console.log("New thread func", ptr3.sub(lib_base), "args : ", args[0], args[1]);
             },
-            onLeave: function (retval) {
+            onLeave: function(retval) {
                 console.log("New thread func return : ", retval);
             }
         });
@@ -124,43 +124,43 @@ function getModuleNameFromAddress(addr) {
 
 // Few methods might check frida's presence so added them if process freeze you can comment these
 
-Interceptor.replace(inet_aton_ptr, new NativeCallback(function (addrs, structure) {
+Interceptor.replace(inet_aton_ptr, new NativeCallback(function(addrs, structure) {
     const retval = inet_aton(addrs, structure);
     console.log("inet_aton : ", addrs.readCString());
     return retval;
 }, "int", ["pointer", "pointer"]));
 
-Interceptor.replace(popen_ptr, new NativeCallback(function (path, type) {
+Interceptor.replace(popen_ptr, new NativeCallback(function(path, type) {
     const retval = popen(path, type);
     console.log("popen : ", path.readCString());
     return retval;
 }, "pointer", ["pointer", "pointer"]));
 
-Interceptor.replace(symlink_ptr, new NativeCallback(function (target, path) {
+Interceptor.replace(symlink_ptr, new NativeCallback(function(target, path) {
     const retval = symlink(target, path);
     console.log("symlink: ", target.readCString(), path.readCString());
     return retval;
 }, "int", ["pointer", "pointer"]));
 
-Interceptor.replace(symlinkat_ptr, new NativeCallback(function (target, fd, path) {
+Interceptor.replace(symlinkat_ptr, new NativeCallback(function(target, fd, path) {
     const retval = symlinkat(target, fd, path);
     console.log("symlinkat : ", target.readCString(), path.readCString());
     return retval;
 }, "int", ["pointer", "int", "pointer"]));
 
-Interceptor.replace(inet_addr_ptr, new NativeCallback(function (path) {
+Interceptor.replace(inet_addr_ptr, new NativeCallback(function(path) {
     const retval = inet_addr(path);
     console.log("inet_addr : ", path.readCString())
     return retval;
 }, "int", ["pointer"]));
 
-Interceptor.replace(socket_ptr, new NativeCallback(function (domain, type, proto) {
+Interceptor.replace(socket_ptr, new NativeCallback(function(domain, type, proto) {
     const retval = socket(domain, type, proto);
     console.warn("socket  : ", domain, type, proto, "Return : ", retval)
     return retval;
 }, "int", ["int", "int", "int"]));
 
-Interceptor.replace(connect_ptr, new NativeCallback(function (fd, addr, len) {
+Interceptor.replace(connect_ptr, new NativeCallback(function(fd, addr, len) {
     const retval = connect(fd, addr, len);
     const family = addr.readU16();
     let port = addr.add(2).readU16();
@@ -169,13 +169,13 @@ Interceptor.replace(connect_ptr, new NativeCallback(function (fd, addr, len) {
     return retval;
 }, "int", ["int", "pointer", "int"]));
 
-Interceptor.replace(send_ptr, new NativeCallback(function (socksfd, msg, slen, flag, daddr, dlen) {
+Interceptor.replace(send_ptr, new NativeCallback(function(socksfd, msg, slen, flag, daddr, dlen) {
     const retval = send_(socksfd, msg, slen, flag);
     console.log("send : ", socksfd, msg.readCString(), slen, flag);
     return retval;
 }, "int", ["int", "pointer", "int", "int"]));
 
-Interceptor.replace(sendto_ptr, new NativeCallback(function (socksfd, msg, slen, flag, daddr, dlen) {
+Interceptor.replace(sendto_ptr, new NativeCallback(function(socksfd, msg, slen, flag, daddr, dlen) {
     const retval = sendto(socksfd, msg, slen, flag, daddr, dlen);
     // console.log("sendto : ", socksfd, msg.readCString(), slen, flag, daddr, dlen);
     return retval;
@@ -205,7 +205,7 @@ const status_buf = Memory.alloc(512);
 
 // const map_open64_buf = Memory.alloc(512);
 
-Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
+Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
     const fd = open(pathname, flag);
     const path = pathname.readCString();
     /*
@@ -250,7 +250,7 @@ Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
                 // console.log("buffer : ", buffer);                                     
             }
             return open(Memory.allocUtf8String(fake_maps), flag);
-        }else if (path.includes("task")) {
+        } else if (path.includes("task")) {
             console.log("open : ", path);
             while (parseInt(read(fd, task_buf, 512)) !== 0) {
                 const buffer = task_buf.readCString()
@@ -280,7 +280,7 @@ Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
                 // console.log(buffer);
             }
             return open(Memory.allocUtf8String(fake_task), flag);
-        }else if (path.includes("exe")) {
+        } else if (path.includes("exe")) {
             console.log("open : ", path);
             while (parseInt(read(fd, exe_buf, 512)) !== 0) {
                 let buffer = exe_buf.readCString();
@@ -302,7 +302,7 @@ Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
                 exe.write(buffer);
             }
             return open(Memory.allocUtf8String(fake_exe), flag);
-        }else if (path.includes("mounts")) {
+        } else if (path.includes("mounts")) {
             console.log("open : ", path);
             while (parseInt(read(fd, mounts_buf, 512)) !== 0) {
                 const buffer = mounts_buf.readCString()
@@ -332,13 +332,13 @@ Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
         }
         */
         else {
-        return fd;
+            return fd;
         }
     }
     return fd;
 }, "int", ["pointer", "int"]));
 
-Interceptor.replace(fgets_ptr, new NativeCallback(function (buf, size, fp) {
+Interceptor.replace(fgets_ptr, new NativeCallback(function(buf, size, fp) {
     // const retval = fgets(buf, size, fp);
     const buffer = buf.readCString()
         .replaceAll("re.frida.server", "FakingGets")
@@ -368,7 +368,7 @@ Interceptor.replace(fgets_ptr, new NativeCallback(function (buf, size, fp) {
     return fgets(buf, size, fp);
 }, "pointer", ["pointer", "int", "pointer"]));
 
-Interceptor.replace(readlink_ptr, new NativeCallback(function (pathname, buffer, bufsize) {
+Interceptor.replace(readlink_ptr, new NativeCallback(function(pathname, buffer, bufsize) {
     const retval = readlink(pathname, buffer, bufsize);
     const str = buffer.readCString();
     if (str.includes("frida") ||
@@ -393,7 +393,7 @@ Interceptor.replace(readlink_ptr, new NativeCallback(function (pathname, buffer,
     return retval;
 }, "int", ["pointer", "pointer", "int"]))
 
-Interceptor.replace(readlinkat_ptr, new NativeCallback(function (dirfd, pathname, buffer, bufsize) {
+Interceptor.replace(readlinkat_ptr, new NativeCallback(function(dirfd, pathname, buffer, bufsize) {
     const retval = readlinkat(dirfd, pathname, buffer, bufsize);
     const str = buffer.readCString();
     if (str.includes("frida") ||
@@ -419,7 +419,7 @@ Interceptor.replace(readlinkat_ptr, new NativeCallback(function (dirfd, pathname
 }, "int", ["int", "pointer", "pointer", "int"]))
 
 Interceptor.attach(Module.findExportByName(null, "strstr"), {
-    onEnter: function (args) {
+    onEnter: function(args) {
         this.frida = false;
         const str1 = args[0].readCString();
         const str2 = args[1].readCString();
@@ -444,7 +444,7 @@ Interceptor.attach(Module.findExportByName(null, "strstr"), {
             console.log("strstr : ", str1, str2);
         }
     },
-    onLeave: function (retval) {
+    onLeave: function(retval) {
         if (this.frida) {
             retval.replace(ptr(0));
         }
