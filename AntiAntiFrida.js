@@ -339,7 +339,7 @@ Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
 }, "int", ["pointer", "int"]));
 
 Interceptor.replace(fgets_ptr, new NativeCallback(function(buf, size, fp) {
-    // const retval = fgets(buf, size, fp);
+    const retval = fgets(buf, size, fp);
     const buffer = buf.readCString()
         .replaceAll("re.frida.server", "FakingGets")
         .replaceAll("frida-agent-64.so", "FakingGets")
@@ -365,7 +365,7 @@ Interceptor.replace(fgets_ptr, new NativeCallback(function(buf, size, fp) {
         .replaceAll("xposed", "FakingGets");
     buf.writeUtf8String(buffer);
     // console.log(buf.readCString());
-    return fgets(buf, size, fp);
+    return retval;
 }, "pointer", ["pointer", "int", "pointer"]));
 
 Interceptor.replace(readlink_ptr, new NativeCallback(function(pathname, buffer, bufsize) {
