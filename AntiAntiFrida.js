@@ -5,7 +5,7 @@
 */
 
 const libc = Process.getModuleByName("libc.so");
-const find = (exp) => libc.findExportByName.call(libc, exp);
+const find = (exp) => libc.findExportByName(exp);
 
 const pthread_create_ptr = find("pthread_create");
 const pthread_create = new NativeFunction(pthread_create_ptr, "int", ["pointer", "pointer", "pointer", "pointer"]);
