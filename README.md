@@ -1,6 +1,6 @@
 # AntiFrida_Bypass
 
-Generic script to vypass some frida checks(anti frida)
+Generic script to bypass some frida checks(anti frida)
 
 Please star or fork it if you use it -> it will give me confidence that the community likes it
 
