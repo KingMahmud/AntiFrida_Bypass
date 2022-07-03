@@ -114,9 +114,9 @@ Interceptor.replace(pthread_create_ptr, new NativeCallback(function(ptr0, ptr1, 
 function getModuleNameFromAddress(addr) {
     if (addr !== null && !addr.isNull()) {
         try {
-            return Process.getModuleByAddress(addr);
+            return Process.getModuleByAddress(addr).name;
         } catch (e) {
-            console.error(e);
+            // console.error(e);
             return "";
         }
     }
