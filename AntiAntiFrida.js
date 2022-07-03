@@ -1,67 +1,105 @@
 /*
-Made By @ApkUnpacker on 29-6-2022 
-Uploaded on 3-7-2022 ( so i can remember that i faced 4 days internet ban in my area and in free time made this. lol)
+   Made By @ApkUnpacker on 29/06/2022
+   Uploaded on 03/07/2022(so i can remember that i faced 4 days internet ban in my area and in free time made this, lol)
+   Updated by @KingMahmud on 03/07/2022
 */
-var ProName = ProcessName();
-function ProcessName() {
-    var openPtr = Module.getExportByName('libc.so', 'open');
-    var open = new NativeFunction(openPtr, 'int', ['pointer', 'int']);
-    var readPtr = Module.getExportByName('libc.so', 'read');
-    var read = new NativeFunction(readPtr, 'int', ['int', 'pointer', 'int']);
-    var closePtr = Module.getExportByName('libc.so', 'close');
-    var close = new NativeFunction(closePtr, 'int', ['int']);
-    var path = Memory.allocUtf8String('/proc/self/cmdline');
-    var fd = open(path, 0);
-    if (fd != -1) {
-        var buffer = Memory.alloc(0x1000);
-        var result = read(fd, buffer, 0x1000);
+
+const libc = Process.getModuleByName("libc.so");
+const find = libc.findExportByName;
+
+const pthread_create_ptr = find("pthread_create");
+const pthread_create = new NativeFunction(pthread_create_ptr, "int", ["pointer", "pointer", "pointer", "pointer"]);
+const open_ptr = find("open");
+const open = new NativeFunction(open_ptr, "int", ["pointer", "int"]);
+const read_ptr = find("read");
+const read = new NativeFunction(read_ptr, "int", ["int", "pointer", "int"]);
+const close_ptr = find("close");
+const close = new NativeFunction(close_ptr, "int", ["int"]);
+const inet_aton_ptr = find("inet_aton");
+const inet_aton = new NativeFunction(inet_aton_ptr, "int", ["pointer", "pointer"]);
+const popen_ptr = find("popen");
+const popen = new NativeFunction(popen_ptr, "pointer", ["pointer", "pointer"]);
+const symlink_ptr = find("symlink");
+const symlink = new NativeFunction(symlink_ptr, "int", ["pointer", "pointer"]);
+const symlinkat_ptr = find("symlinkat");
+const symlinkat = new NativeFunction(symlinkat_ptr, "int", ["pointer", "int", "pointer"]);
+const inet_addr_ptr = find("inet_addr");
+const inet_addr = new NativeFunction(inet_addr_ptr, "int", ["pointer"]);
+const socket_ptr = find("socket");
+const socket = new NativeFunction(socket_ptr, "int", ["int", "int", "int"]);
+const connect_ptr = find("connect");
+const connect = new NativeFunction(connect_ptr, "int", ["int", "pointer", "int"]);
+const send_ptr = find("send");
+// clash with frida send, append _
+const send_ = new NativeFunction(send_ptr, "int", ["int", "pointer", "int", "int"]);
+const sendto_ptr = find("sendto");
+const sendto = new NativeFunction(sendto_ptr, "int", ["int", "pointer", "int", "int", "pointer", "int"]);
+const fgets_ptr = find("fgets");
+const fgets = new NativeFunction(fgets_ptr, "pointer", ["pointer", "int", "pointer"]);
+const readlink_ptr = find("readlink");
+const readlink = new NativeFunction(readlink_ptr, "int", ["pointer", "pointer", "int"]);
+const readlinkat_ptr = find("readlinkat");
+const readlinkat = new NativeFunction(readlinkat_ptr, "int", ["int", "pointer", "pointer", "int"]);
+const fopen_ptr = find("fopen");
+const fopen = new NativeFunction(fopen_ptr, "pointer", ["pointer", "pointer"]);
+const memcpy_ptr = find("memcpy");
+const memcpy = new NativeFunction(memcpy_ptr, "pointer", ["pointer", "pointer", "int"]);
+
+function getProcessName() {
+    const path = Memory.allocUtf8String("/proc/self/cmdline");
+    const fd = open(path, 0);
+    if (fd != -1) { // TODO : Find out if fd != -1 or fd !== -1 is efficient.
+        const buffer = Memory.alloc(0x1000);
+        const result = read(fd, buffer, 0x1000);
         close(fd);
-        result = ptr(buffer).readCString();
-        return result;
+        return ptr(buffer).readCString();
     }
-    return -1;
+    return "";
 }
-var ourlib = "libxyz.so";
-var p_pthread_create = Module.findExportByName("libc.so", "pthread_create");
-var pthread_create = new NativeFunction(p_pthread_create, "int", ["pointer", "pointer", "pointer", "pointer"]);
-Interceptor.replace(p_pthread_create, new NativeCallback(function(ptr0, ptr1, ptr2, ptr3) {
-    var ret = ptr(0);
-    if (gmn(ptr0) == ourlib) {
-        console.log("Thread Created ptr0 : ", gmn(ptr0), Mod, ptr0.sub(Mod));
+
+const process_name = getProcessName();
+
+const library_name = "libxyz.so";
+
+Interceptor.replace(pthread_create_ptr, new NativeCallback(function(ptr0, ptr1, ptr2, ptr3) {
+    const lib_base = Module.findBaseAddress(library_name);
+    const ptr0_name = getModuleNameFromAddress(ptr0);
+    if (ptr0_name == library_name) {
+        console.log("Thread created ptr0 : ", ptr0_name, lib_base, ptr0.sub(lib_base));
     }
-    if (gmn(ptr1) == ourlib) {
-        var Mod = Module.findBaseAddress(ourlib)
-        console.log("Thread Created ptr1 : ", gmn(ptr1), Mod, ptr1.sub(Mod));
-        Interceptor.attach(Mod.add(ptr1.sub(Mod)), {
+    const ptr1_name = getModuleNameFromAddress(ptr1);
+    if (ptr1_name == library_name) {
+        console.log("Thread created ptr1 : ", ptr1_name, lib_base, ptr1.sub(lib_base));
+        Interceptor.attach(lib_base.add(ptr1.sub(lib_base)), {
             onEnter: function(args) {
-                console.log("New Thread Func", ptr1.sub(Mod), "arg : ", args[0], args[1]);
+                console.log("New thread func", ptr1.sub(lib_base), "args : ", args[0], args[1]);
             },
             onLeave: function(retval) {
-                console.log("New Thread Func Return : ", retval);
+                console.log("New thread func return : ", retval);
             }
         });
     }
-    if (gmn(ptr2) == ourlib) {
-        var Mod = Module.findBaseAddress(ourlib)
-        console.log("Thread Created ptr2 : ", gmn(ptr2), Mod, ptr2.sub(Mod));
-        Interceptor.attach(Mod.add(ptr2.sub(Mod)), {
+    const ptr2_name = getModuleNameFromAddress(ptr2);
+    if (ptr2_name == library_name) {
+        console.log("Thread created ptr2 : ", ptr2_name, lib_base, ptr2.sub(lib_base));
+        Interceptor.attach(lib_base.add(ptr2.sub(lib_base)), {
             onEnter: function(args) {
-                console.log("New Thread Func", ptr2.sub(Mod), "arg : ", args[0], args[1]);
+                console.log("New thread func", ptr2.sub(lib_base), "args : ", args[0], args[1]);
             },
             onLeave: function(retval) {
-                console.log("New Thread Func Return : ", retval);
+                console.log("New thread func return : ", retval);
             }
         });
     }
-    if (gmn(ptr3) == ourlib) {
-        var Mod = Module.findBaseAddress(ourlib)
-        console.log("Thread Created ptr3 : ", gmn(ptr3), Mod, ptr3.sub(Mod));
-        Interceptor.attach(Mod.add(ptr3.sub(Mod)), {
+    const ptr3_name = getModuleNameFromAddress(ptr3);
+    if (ptr3_name == library_name) {
+        console.log("Thread created ptr3 : ", ptr3_name, lib_base, ptr3.sub(lib_base));
+        Interceptor.attach(lib_base.add(ptr3.sub(lib_base)), {
             onEnter: function(args) {
-                console.log("New Thread Func", ptr3.sub(Mod), "arg : ", args[0], args[1]);
+                console.log("New thread func", ptr3.sub(lib_base), "args : ", args[0], args[1]);
             },
             onLeave: function(retval) {
-                console.log("New Thread Func Return : ", retval);
+                console.log("New thread func return : ", retval);
             }
         });
     }
@@ -70,546 +108,513 @@ Interceptor.replace(p_pthread_create, new NativeCallback(function(ptr0, ptr1, pt
         /* return -1 if you not want to create that thread */
         return pthread_create(ptr0, ptr1, ptr2, ptr3);
         // return -1;
-    } else {       
-        return pthread_create(ptr0, ptr1, ptr2, ptr3);;
+    } else {
+        return pthread_create(ptr0, ptr1, ptr2, ptr3);
     }
 }, "int", ["pointer", "pointer", "pointer", "pointer"]));
 
-function gmn(fnPtr) {
-    if (fnPtr != null) {
+function getModuleNameFromAddress(addr) {
+    if (addr !== null && !addr.isNull()) {
         try {
-            var nms;
-            var mn = Process.getModuleByAddress(fnPtr);
-            nms = mn.name;
-        } catch (e) {}
-        return nms;
+            return Process.getModuleByAddress(addr);
+        } catch (e) {
+            console.error(e);
+            return "";
+        }
     }
 }
-/* few method might check frida presence so added them 
-if process freeze you can comment these 
-*/
-var inet_atonPtr = Module.findExportByName("libc.so", "inet_aton");
-var inet_aton = new NativeFunction(inet_atonPtr, 'int', ['pointer', 'pointer']);
-Interceptor.replace(inet_atonPtr, new NativeCallback(function(addrs, structure) {
-    var retval = inet_aton(addrs, structure);
-    console.log("inet_aton : ", addrs.readCString())
+
+// Few methods might check frida's presence so added them if process freeze you can comment these
+
+Interceptor.replace(inet_aton_ptr, new NativeCallback(function(addrs, structure) {
+    const retval = inet_aton(addrs, structure);
+    console.log("inet_aton : ", addrs.readCString());
     return retval;
-}, 'int', ['pointer', 'pointer']))
-var popenPtr = Module.findExportByName("libc.so", "popen");
-var popen = new NativeFunction(popenPtr, 'pointer', ['pointer', 'pointer']);
-Interceptor.replace(popenPtr, new NativeCallback(function(path, type) {
-    var retval = popen(path, type);
+}, "int", ["pointer", "pointer"]));
+
+Interceptor.replace(popen_ptr, new NativeCallback(function(path, type) {
+    const retval = popen(path, type);
     console.log("popen : ", path.readCString());
     return retval;
-}, 'pointer', ['pointer', 'pointer']))
-var symlinkPtr = Module.findExportByName("libc.so", "symlink");
-var symlink = new NativeFunction(symlinkPtr, 'int', ['pointer', 'pointer']);
-Interceptor.replace(symlinkPtr, new NativeCallback(function(target, path) {
-    var retval = symlink(target, path);
+}, "pointer", ["pointer", "pointer"]));
+
+Interceptor.replace(symlink_ptr, new NativeCallback(function(target, path) {
+    const retval = symlink(target, path);
     console.log("symlink: ", target.readCString(), path.readCString());
     return retval;
-}, 'int', ['pointer', 'pointer']))
-var symlinkatPtr = Module.findExportByName("libc.so", "symlinkat");
-var symlinkat = new NativeFunction(symlinkatPtr, 'int', ['pointer', 'int', 'pointer']);
-Interceptor.replace(symlinkatPtr, new NativeCallback(function(target, fd, path) {
-    var retval = symlinkat(target, fd, path);
+}, "int", ["pointer", "pointer"]));
+
+Interceptor.replace(symlinkat_ptr, new NativeCallback(function(target, fd, path) {
+    const retval = symlinkat(target, fd, path);
     console.log("symlinkat : ", target.readCString(), path.readCString());
     return retval;
-}, 'int', ['pointer', 'int', 'pointer']))
-var inet_addrPtr = Module.findExportByName("libc.so", "inet_addr");
-var inet_addr = new NativeFunction(inet_addrPtr, 'int', ['int']);
-Interceptor.replace(inet_addrPtr, new NativeCallback(function(path) {
-    var retval = inet_addr(path);
+}, "int", ["pointer", "int", "pointer"]));
+
+Interceptor.replace(inet_addr_ptr, new NativeCallback(function(path) {
+    const retval = inet_addr(path);
     console.log("inet_addr : ", path.readCString())
     return retval;
-}, 'int', ['int']))
-var socketPtr = Module.findExportByName("libc.so", "socket");
-var socket = new NativeFunction(socketPtr, 'int', ['int', 'int', 'int']);
-Interceptor.replace(socketPtr, new NativeCallback(function(domain, type, proto) {
-    var retval = socket(domain, type, proto);
+}, "int", ["pointer"]));
+
+Interceptor.replace(socket_ptr, new NativeCallback(function(domain, type, proto) {
+    const retval = socket(domain, type, proto);
     console.warn("socket  : ", domain, type, proto, "Return : ", retval)
     return retval;
-}, 'int', ['int', 'int', 'int']))
-var connectPtr = Module.findExportByName("libc.so", "connect");
-var connect = new NativeFunction(connectPtr, 'int', ['int', 'pointer', 'int']);
-Interceptor.replace(connectPtr, new NativeCallback(function(fd, addr, len) {
-    var retval = connect(fd, addr, len);
-    var family = addr.readU16();
-    var port = addr.add(2).readU16();
-    //port = ((port & 0xff) << 8) | (port >> 8);
+}, "int", ["int", "int", "int"]));
+
+Interceptor.replace(connect_ptr, new NativeCallback(function(fd, addr, len) {
+    const retval = connect(fd, addr, len);
+    const family = addr.readU16();
+    let port = addr.add(2).readU16();
+    // port = ((port & 0xff) << 8) | (port >> 8);
     console.warn("Connect : ", family, "Port : ", port, "Return : ", retval);
     return retval;
-}, 'int', ['int', 'pointer', 'int']))
-var sendPtr = Module.findExportByName("libc.so", "send");
-var send2 = new NativeFunction(sendPtr, 'int', ['int', 'pointer', 'int', 'int']);
-Interceptor.replace(sendPtr, new NativeCallback(function(socksfd, msg, slen, flag, daddr, dlen) {
-    var retval = send2(socksfd, msg, slen, flag);
+}, "int", ["int", "pointer", "int"]));
+
+Interceptor.replace(send_ptr, new NativeCallback(function(socksfd, msg, slen, flag, daddr, dlen) {
+    const retval = send_(socksfd, msg, slen, flag);
     console.log("send : ", socksfd, msg.readCString(), slen, flag);
     return retval;
-}, 'int', ['int', 'pointer', 'int', 'int']))
-var sendtoPtr = Module.findExportByName("libc.so", "sendto");
-var sendto = new NativeFunction(sendtoPtr, 'int', ['int', 'pointer', 'int', 'int', 'pointer', 'int']);
-Interceptor.replace(sendtoPtr, new NativeCallback(function(socksfd, msg, slen, flag, daddr, dlen) {
-    var retval = sendto(socksfd, msg, slen, flag, daddr, dlen);
-    //  console.log("sendto : ",socksfd,msg.readCString(),slen,flag,daddr,dlen);                                       
+}, "int", ["int", "pointer", "int", "int"]));
+
+Interceptor.replace(sendto_ptr, new NativeCallback(function(socksfd, msg, slen, flag, daddr, dlen) {
+    const retval = sendto(socksfd, msg, slen, flag, daddr, dlen);
+    // console.log("sendto : ", socksfd, msg.readCString(), slen, flag, daddr, dlen);
     return retval;
-}, 'int', ['int', 'pointer', 'int', 'int', 'pointer', 'int']))
+}, "int", ["int", "pointer", "int", "int", "pointer", "int"]));
 
-const openPtr = Module.getExportByName('libc.so', 'open');
-const open = new NativeFunction(openPtr, 'int', ['pointer', 'int']);
-var readPtr = Module.findExportByName("libc.so", "read");
-var read = new NativeFunction(readPtr, 'int', ['int', 'pointer', "int"]);
+// if process name not work correctly you can replace manually with your package name here
 
-//if process name not work correctly you can replace manually with your package name here 
-var FakeMaps = "/data/data/" + ProName + "/maps";
-var FOpenMaps = "/data/data/" + ProName + "/fmaps";
-var FakeTask = "/data/data/" + ProName + "/task";
-var FakeExE = "/data/data/" + ProName + "/exe";
-var FakeMounts = "/data/data/" + ProName + "/mounts";
-var FakeStatus = "/data/data/" + ProName + "/status";
-var MapsFile = new File(FakeMaps, "w");
-var TaskFile = new File(FakeTask, "w");
-var ExEFile = new File(FakeExE, "w");
-var FMapsFile = new File(FOpenMaps, "w");
-var FMountFile = new File(FakeMounts, "w");
-var StatusFile = new File(FakeStatus, "w");
-var MapsBuffer = Memory.alloc(512);
-var TaskBuffer = Memory.alloc(512);
-var ExEBuffer = Memory.alloc(512);
-var FopenBuffer = Memory.alloc(512);
-var MountBuffer = Memory.alloc(512);
-var StatusBuffer = Memory.alloc(512);
-var Open64MapsBuffer = Memory.alloc(512);
-Interceptor.replace(openPtr, new NativeCallback(function(pathname, flag) {
-    var FD = open(pathname, flag);
-    var ch = pathname.readCString();
+console.log(process_name);
+
+const fake_maps = "/data/data/" + process_name + "/maps";
+const fake_fmaps = "/data/data/" + process_name + "/fmaps";
+const fake_task = "/data/data/" + process_name + "/task";
+const fake_exe = "/data/data/" + process_name + "/exe";
+const fake_mounts = "/data/data/" + process_name + "/mounts";
+const fake_status = "/data/data/" + process_name + "/status";
+
+const maps = new File(fake_maps, "w");
+const task = new File(fake_task, "w");
+const exe = new File(fake_exe, "w");
+const fmaps = new File(fake_fmaps, "w");
+const mounts = new File(fake_mounts, "w");
+const status = new File(fake_status, "w");
+
+const open_buf = Memory.alloc(512);
+const fopen_buf = Memory.alloc(512);
+const open64_buf = Memory.alloc(512);
+
+Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
+    const fd = open(pathname, flag);
+    const path = pathname.readCString();
     /*
-    if(ch.indexOf("lib")>=0 && ch.indexOf(".so")>=0) {
-      return FD;
+    if (path.includes("lib") && path.includes(".so")) {
+        return fd;
     }
     */
-    if (ch.indexOf("/proc/") >= 0 && ch.indexOf("maps") >= 0) {
-          console.log("open : ", pathname.readCString()) 
-        while (parseInt(read(FD, MapsBuffer, 512)) !== 0) {
-            var MBuffer = MapsBuffer.readCString();
-            MBuffer = MBuffer.replaceAll("/data/local/tmp/re.frida.server/frida-agent-64.so", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("re.frida.server", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("re.frida", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("re.", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida.", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida-agent-64.so", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("rida-agent-64.so", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("agent-64.so", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida-agent-32.so", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida-helper-32", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida-helper", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida-agent", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("pool-frida", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida-", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("/data/local/tmp", "/data");
-            MBuffer = MBuffer.replaceAll("server", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida-server", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("linjector", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("gum-js-loop", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida_agent_main", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("gmain", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("frida", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("magisk", "FakingMaps");
-            MBuffer = MBuffer.replaceAll(".magisk", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("/sbin/.magisk", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("libriru", "FakingMaps");
-            MBuffer = MBuffer.replaceAll("xposed", "FakingMaps");
-            MapsFile.write(MBuffer);
-            // console.log("MBuffer : ",MBuffer);                                     
-        }
-        var filename = Memory.allocUtf8String(FakeMaps);
-        return open(filename, flag);
-    }
-    if (ch.indexOf("/proc") >= 0 && ch.indexOf("task") >= 0) {
-        // console.log("open : ", pathname.readCString()) 
-        while (parseInt(read(FD, TaskBuffer, 512)) !== 0) {
-            var buffer = TaskBuffer.readCString();
-            buffer = buffer.replaceAll("re.frida.server", "FakingTask");
-            buffer = buffer.replaceAll("frida-agent-64.so", "FakingTask");
-            buffer = buffer.replaceAll("rida-agent-64.so", "FakingTask");
-            buffer = buffer.replaceAll("agent-64.so", "FakingTask");
-            buffer = buffer.replaceAll("frida-agent-32.so", "FakingTask");
-            buffer = buffer.replaceAll("frida-helper-32", "FakingTask");
-            buffer = buffer.replaceAll("frida-helper", "FakingTask");
-            buffer = buffer.replaceAll("frida-agent", "FakingTask");
-            buffer = buffer.replaceAll("pool-frida", "FakingTask");
-            buffer = buffer.replaceAll("frida", "FakingTask");
-            buffer = buffer.replaceAll("/data/local/tmp", "/data");
-            buffer = buffer.replaceAll("server", "FakingTask");
-            buffer = buffer.replaceAll("frida-server", "FakingTask");
-            buffer = buffer.replaceAll("linjector", "FakingTask");
-            buffer = buffer.replaceAll("gum-js-loop", "FakingTask");
-            buffer = buffer.replaceAll("frida_agent_main", "FakingTask");
-            buffer = buffer.replaceAll("gmain", "FakingTask");
-            buffer = buffer.replaceAll("magisk", "FakingTask");
-            buffer = buffer.replaceAll(".magisk", "FakingTask");
-            buffer = buffer.replaceAll("/sbin/.magisk", "FakingTask");
-            buffer = buffer.replaceAll("libriru", "FakingTask");
-            buffer = buffer.replaceAll("xposed", "FakingTask");
-            TaskFile.write(buffer);
-            // console.log(buffer);
-        }
-        var filename2 = Memory.allocUtf8String(FakeTask);
-        return open(filename2, flag);
-    }
-    if (ch.indexOf("/proc/") >= 0 && ch.indexOf("mounts") >= 0) {
-        console.log("open : ", pathname.readCString())
-        while (parseInt(read(FD, MountBuffer, 512)) !== 0) {
-            var MNTBuffer = MountBuffer.readCString();
-            MNTBuffer = MNTBuffer.replaceAll("magisk", "StaySafeStayHappy");
-            MNTBuffer = MNTBuffer.replaceAll("/sbin/.magisk", "StaySafeStayHappy");
-            MNTBuffer = MNTBuffer.replaceAll("libriru", "StaySafeStayHappy");
-            MNTBuffer = MNTBuffer.replaceAll("xposed", "StaySafeStayHappy");
-            MNTBuffer = MNTBuffer.replaceAll("mirror", "StaySafeStayHappy");
-            MNTBuffer = MNTBuffer.replaceAll("system_root", "StaySafeStayHappy");
-            MNTBuffer = MNTBuffer.replaceAll("xposed", "StaySafeStayHappy")
-            FMountFile.write(MNTBuffer);
-            // console.log("MNTBuffer : ",MNTBuffer);                                     
-        }
-        var mountname = Memory.allocUtf8String(FakeMounts);
-        return open(mountname, flag);
-    }
-    /*
-      if (ch.indexOf("/proc/") >=0 && ch.indexOf("status") >=0) {     
-         console.log("open : ", pathname.readCString()) 
-         while (parseInt(read(FD, StatusBuffer, 512)) !== 0) {
-         var PStatus = StatusBuffer.readCString();   
-         if (PStatus.indexOf("TracerPid:") > -1) {
-                StatusBuffer.writeUtf8String("TracerPid:\t0");
-                console.log("Bypassing TracerPID Check");               
+    if (path.includes("/proc/")) {
+        if (path.includes("maps")) {
+            console.log("open : ", path);
+            while (parseInt(read(fd, open_buf, 512)) !== 0) {
+                const buffer = open_buf.readCString()
+                    .replaceAll("/data/local/tmp/re.frida.server/frida-agent-64.so", "FakingMaps")
+                    .replaceAll("re.frida.server", "FakingMaps")
+                    .replaceAll("re.frida", "FakingMaps")
+                    .replaceAll("re.", "FakingMaps")
+                    .replaceAll("frida.", "FakingMaps")
+                    .replaceAll("frida-agent-64.so", "FakingMaps")
+                    .replaceAll("rida-agent-64.so", "FakingMaps")
+                    .replaceAll("agent-64.so", "FakingMaps")
+                    .replaceAll("frida-agent-32.so", "FakingMaps")
+                    .replaceAll("frida-helper-32", "FakingMaps")
+                    .replaceAll("frida-helper", "FakingMaps")
+                    .replaceAll("frida-agent", "FakingMaps")
+                    .replaceAll("pool-frida", "FakingMaps")
+                    .replaceAll("frida", "FakingMaps")
+                    .replaceAll("frida-", "FakingMaps")
+                    .replaceAll("/data/local/tmp", "/data")
+                    .replaceAll("server", "FakingMaps")
+                    .replaceAll("frida-server", "FakingMaps")
+                    .replaceAll("linjector", "FakingMaps")
+                    .replaceAll("gum-js-loop", "FakingMaps")
+                    .replaceAll("frida_agent_main", "FakingMaps")
+                    .replaceAll("gmain", "FakingMaps")
+                    .replaceAll("frida", "FakingMaps")
+                    .replaceAll("magisk", "FakingMaps")
+                    .replaceAll(".magisk", "FakingMaps")
+                    .replaceAll("/sbin/.magisk", "FakingMaps")
+                    .replaceAll("libriru", "FakingMaps")
+                    .replaceAll("xposed", "FakingMaps");
+                maps.write(buffer);
+                // console.log("buffer : ", buffer);                                     
             }
-         StatusFile.write(PStatus);                                                
-                }
-            var statusname = Memory.allocUtf8String(FakeStatus);
-            return open(statusname, flag);  
-    }
-     */
-    if (ch.indexOf("/proc") >= 0 && ch.indexOf("exe") >= 0) {
-        console.log("open : ", pathname.readCString())
-        while (parseInt(read(FD, ExEBuffer, 512)) !== 0) {
-            var buffer = ExEBuffer.readCString();
-            //  console.warn(buffer)
-            buffer = buffer.replaceAll("frida-agent-64.so", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("frida-agent-32.so", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("re.frida.server", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("frida-helper-32", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("frida-helper", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("pool-frida", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("frida", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("/data/local/tmp", "/data");
-            buffer = buffer.replaceAll("frida-server", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("linjector", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("gum-js-loop", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("frida_agent_main", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("gmain", "StaySafeStayHappy");
-            buffer = buffer.replaceAll("frida-agent", "StaySafeStayHappy");
-            ExEFile.write(buffer);
+            return open(Memory.allocUtf8String(fake_maps), flag);
         }
-        var filename3 = Memory.allocUtf8String(FakeExE);
-        return open(filename3, flag);
+        if (path.includes("task")) {
+            console.log("open : ", path);
+            while (parseInt(read(fd, open_buf, 512)) !== 0) {
+                const buffer = open_buf.readCString()
+                    .replaceAll("re.frida.server", "FakingTask")
+                    .replaceAll("frida-agent-64.so", "FakingTask")
+                    .replaceAll("rida-agent-64.so", "FakingTask")
+                    .replaceAll("agent-64.so", "FakingTask")
+                    .replaceAll("frida-agent-32.so", "FakingTask")
+                    .replaceAll("frida-helper-32", "FakingTask")
+                    .replaceAll("frida-helper", "FakingTask")
+                    .replaceAll("frida-agent", "FakingTask")
+                    .replaceAll("pool-frida", "FakingTask")
+                    .replaceAll("frida", "FakingTask")
+                    .replaceAll("/data/local/tmp", "/data")
+                    .replaceAll("server", "FakingTask")
+                    .replaceAll("frida-server", "FakingTask")
+                    .replaceAll("linjector", "FakingTask")
+                    .replaceAll("gum-js-loop", "FakingTask")
+                    .replaceAll("frida_agent_main", "FakingTask")
+                    .replaceAll("gmain", "FakingTask")
+                    .replaceAll("magisk", "FakingTask")
+                    .replaceAll(".magisk", "FakingTask")
+                    .replaceAll("/sbin/.magisk", "FakingTask")
+                    .replaceAll("libriru", "FakingTask")
+                    .replaceAll("xposed", "FakingTask");
+                task.write(buffer);
+                // console.log(buffer);
+            }
+            return open(Memory.allocUtf8String(fake_task), flag);
+        }
+        if (path.includes("mounts")) {
+            console.log("open : ", path);
+            while (parseInt(read(fd, open_buf, 512)) !== 0) {
+                const buffer = open_buf.readCString()
+                    .replaceAll("magisk", "StaySafeStayHappy")
+                    .replaceAll("/sbin/.magisk", "StaySafeStayHappy")
+                    .replaceAll("libriru", "StaySafeStayHappy")
+                    .replaceAll("xposed", "StaySafeStayHappy")
+                    .replaceAll("mirror", "StaySafeStayHappy")
+                    .replaceAll("system_root", "StaySafeStayHappy");
+                mounts.write(buffer);
+                // console.log("buffer : ", buffer);                                     
+            }
+            return open(Memory.allocUtf8String(fake_mounts), flag);
+        }
+        /*
+        if (path.includes("status")) {
+            console.log("open : ", path);
+            while (parseInt(read(fd, open_buf, 512)) !== 0) {
+                const PStatus = open_buf.readCString();
+                if (PStatus.includes("TracerPid:")) {
+                    open_buf.writeUtf8String("TracerPid:\t0");
+                    console.log("Bypassing TracerPID Check");
+                }
+                status.write(PStatus);
+            }
+            return open(Memory.allocUtf8String(fake_status), flag);
+        }
+        */
+        if (path.includes("exe")) {
+            console.log("open : ", path);
+            while (parseInt(read(fd, open_buf, 512)) !== 0) {
+                let buffer = open_buf.readCString();
+                //  console.warn(buffer)
+                .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
+                    .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
+                    .replaceAll("re.frida.server", "StaySafeStayHappy")
+                    .replaceAll("frida-helper-32", "StaySafeStayHappy")
+                    .replaceAll("frida-helper", "StaySafeStayHappy")
+                    .replaceAll("pool-frida", "StaySafeStayHappy")
+                    .replaceAll("frida", "StaySafeStayHappy")
+                    .replaceAll("/data/local/tmp", "/data")
+                    .replaceAll("frida-server", "StaySafeStayHappy")
+                    .replaceAll("linjector", "StaySafeStayHappy")
+                    .replaceAll("gum-js-loop", "StaySafeStayHappy")
+                    .replaceAll("frida_agent_main", "StaySafeStayHappy")
+                    .replaceAll("gmain", "StaySafeStayHappy")
+                    .replaceAll("frida-agent", "StaySafeStayHappy");
+                exe.write(buffer);
+            }
+            return open(Memory.allocUtf8String(fake_exe), flag);
+        }
     }
-    return FD;
-}, 'int', ['pointer', 'int']))
-var fgetsPtr = Module.findExportByName("libc.so", "fgets");
-var fgets = new NativeFunction(fgetsPtr, 'pointer', ['pointer', 'int', 'pointer']);
-Interceptor.replace(fgetsPtr, new NativeCallback(function(buf, size, fp) {
-    //var retval = fgets(buf, size, fp);
-    var buffer = buf.readCString();
-    buffer = buffer.replaceAll("re.frida.server", "FakingGets");
-    buffer = buffer.replaceAll("frida-agent-64.so", "FakingGets");
-    buffer = buffer.replaceAll("rida-agent-64.so", "FakingGets");
-    buffer = buffer.replaceAll("agent-64.so", "FakingGets");
-    buffer = buffer.replaceAll("frida-agent-32.so", "FakingGets");
-    buffer = buffer.replaceAll("frida-helper-32", "FakingGets");
-    buffer = buffer.replaceAll("frida-helper", "FakingGets");
-    buffer = buffer.replaceAll("frida-agent", "FakingGets");
-    buffer = buffer.replaceAll("pool-frida", "FakingGets");
-    buffer = buffer.replaceAll("frida", "FakingGets");
-    buffer = buffer.replaceAll("/data/local/tmp", "/data");
-    buffer = buffer.replaceAll("server", "FakingGets");
-    buffer = buffer.replaceAll("frida-server", "FakingGets");
-    buffer = buffer.replaceAll("linjector", "FakingGets");
-    buffer = buffer.replaceAll("gum-js-loop", "FakingGets");
-    buffer = buffer.replaceAll("frida_agent_main", "FakingGets");
-    buffer = buffer.replaceAll("gmain", "FakingGets");
-    buffer = buffer.replaceAll("magisk", "FakingGets");
-    buffer = buffer.replaceAll(".magisk", "FakingGets");
-    buffer = buffer.replaceAll("/sbin/.magisk", "FakingGets");
-    buffer = buffer.replaceAll("libriru", "FakingGets");
-    buffer = buffer.replaceAll("xposed", "FakingGets");
+    return fd;
+}, "int", ["pointer", "int"]));
+
+Interceptor.replace(fgets_ptr, new NativeCallback(function(buf, size, fp) {
+    // const retval = fgets(buf, size, fp);
+    const buffer = buf.readCString()
+        .replaceAll("re.frida.server", "FakingGets")
+        .replaceAll("frida-agent-64.so", "FakingGets")
+        .replaceAll("rida-agent-64.so", "FakingGets")
+        .replaceAll("agent-64.so", "FakingGets")
+        .replaceAll("frida-agent-32.so", "FakingGets")
+        .replaceAll("frida-helper-32", "FakingGets")
+        .replaceAll("frida-helper", "FakingGets")
+        .replaceAll("frida-agent", "FakingGets")
+        .replaceAll("pool-frida", "FakingGets")
+        .replaceAll("frida", "FakingGets")
+        .replaceAll("/data/local/tmp", "/data")
+        .replaceAll("server", "FakingGets")
+        .replaceAll("frida-server", "FakingGets")
+        .replaceAll("linjector", "FakingGets")
+        .replaceAll("gum-js-loop", "FakingGets")
+        .replaceAll("frida_agent_main", "FakingGets")
+        .replaceAll("gmain", "FakingGets")
+        .replaceAll("magisk", "FakingGets")
+        .replaceAll(".magisk", "FakingGets")
+        .replaceAll("/sbin/.magisk", "FakingGets")
+        .replaceAll("libriru", "FakingGets")
+        .replaceAll("xposed", "FakingGets");
     buf.writeUtf8String(buffer);
-    //  console.log(buf.readCString());
+    // console.log(buf.readCString());
     return fgets(buf, size, fp);
-}, 'pointer', ['pointer', 'int', 'pointer']))
+}, "pointer", ["pointer", "int", "pointer"]));
 
-var readlinkPtr = Module.findExportByName("libc.so", "readlink");
-var readlink = new NativeFunction(readlinkPtr, 'int', ['pointer', 'pointer', 'int']);
-Interceptor.replace(readlinkPtr, new NativeCallback(function(pathname, buffer, bufsize) {
-    var retval = readlink(pathname, buffer, bufsize);  
-   
-     if(buffer.readCString().indexOf("frida")!==-1 ||
-            buffer.readCString().indexOf("gum-js-loop")!==-1||
-            buffer.readCString().indexOf("gmain")!==-1 ||
-            buffer.readCString().indexOf("linjector")!==-1 || 
-            buffer.readCString().indexOf("/data/local/tmp")!==-1 || 
-            buffer.readCString().indexOf("pool-frida")!==-1 || 
-            buffer.readCString().indexOf("frida_agent_main")!==-1 ||
-            buffer.readCString().indexOf("re.frida.server")!==-1 || 
-            buffer.readCString().indexOf("frida-agent")!==-1 ||
-            buffer.readCString().indexOf("frida-agent-64.so")!==-1 ||
-            buffer.readCString().indexOf("frida-agent-32.so")!==-1 ||
-            buffer.readCString().indexOf("frida-helper-32.so")!==-1 ||
-            buffer.readCString().indexOf("frida-helper-64.so")!==-1                        
-            ){
-            console.log(buffer.readCString(), "Check in readlink");
-            buffer.writeUtf8String("/system/framework/services.jar");            
-            return readlink(pathname, buffer, bufsize);  
-     }
-     
-//    console.log("readlink : ", pathname.readCString(), buffer.readCString());
-    return retval;   
-}, 'int', ['pointer', 'pointer', 'int']))
+Interceptor.replace(readlink_ptr, new NativeCallback(function(pathname, buffer, bufsize) {
+    const retval = readlink(pathname, buffer, bufsize);
+    const str = buffer.readCString();
+    if (str.includes("frida") ||
+        str.includes("gum-js-loop") ||
+        str.includes("gmain") ||
+        str.includes("linjector") ||
+        str.includes("/data/local/tmp") ||
+        str.includes("pool-frida") ||
+        str.includes("frida_agent_main") ||
+        str.includes("re.frida.server") ||
+        str.includes("frida-agent") ||
+        str.includes("frida-agent-64.so") ||
+        str.includes("frida-agent-32.so") ||
+        str.includes("frida-helper-32.so") ||
+        str.includes("frida-helper-64.so")
+    ) {
+        console.log(str, "Check in readlink");
+        buffer.writeUtf8String("/system/framework/services.jar");
+        return readlink(pathname, buffer, bufsize);
+    }
+    // console.log("readlink : ", pathname.readCString(), str);
+    return retval;
+}, "int", ["pointer", "pointer", "int"]))
 
+Interceptor.replace(readlinkat_ptr, new NativeCallback(function(dirfd, pathname, buffer, bufsize) {
+    const retval = readlinkat(dirfd, pathname, buffer, bufsize);
+    const str = buffer.readCString();
+    if (str.includes("frida") ||
+        str.includes("gum-js-loop") ||
+        str.includes("gmain") ||
+        str.includes("linjector") ||
+        str.includes("/data/local/tmp") ||
+        str.includes("pool-frida") ||
+        str.includes("frida_agent_main") ||
+        str.includes("re.frida.server") ||
+        str.includes("frida-agent") ||
+        str.includes("frida-agent-64.so") ||
+        str.includes("frida-agent-32.so") ||
+        str.includes("frida-helper-32.so") ||
+        str.includes("frida-helper-64.so")
+    ) {
+        console.log(str, "Check in readlinkat");
+        buffer.writeUtf8String("/system/framework/services.jar");
+        return readlinkat(dirfd, pathname, buffer, bufsize);
+    }
+    // console.log("readlinkat : ", pathname.readCString(), str);
+    return retval;
+}, "int", ["int", "pointer", "pointer", "int"]))
 
-var readlinkatPtr = Module.findExportByName("libc.so", "readlinkat");
-var readlinkat = new NativeFunction(readlinkatPtr, 'int', ['int', 'pointer', 'pointer', 'int']);
-Interceptor.replace(readlinkatPtr, new NativeCallback(function(dirfd, pathname, buffer, bufsize) {
-    var retval = readlinkat(dirfd, pathname, buffer, bufsize);
-    
-     if(buffer.readCString().indexOf("frida")!==-1 ||
-            buffer.readCString().indexOf("gum-js-loop")!==-1||
-            buffer.readCString().indexOf("gmain")!==-1 ||
-            buffer.readCString().indexOf("linjector")!==-1 || 
-            buffer.readCString().indexOf("/data/local/tmp")!==-1 || 
-            buffer.readCString().indexOf("pool-frida")!==-1 || 
-            buffer.readCString().indexOf("frida_agent_main")!==-1 ||
-            buffer.readCString().indexOf("re.frida.server")!==-1 || 
-            buffer.readCString().indexOf("frida-agent")!==-1 ||
-            buffer.readCString().indexOf("frida-agent-64.so")!==-1 ||
-            buffer.readCString().indexOf("frida-agent-32.so")!==-1 ||
-            buffer.readCString().indexOf("frida-helper-32.so")!==-1 ||
-            buffer.readCString().indexOf("frida-helper-64.so")!==-1                              
-            ){
-            console.log(buffer.readCString(), "Check in readlinkat");
-            buffer.writeUtf8String("/system/framework/services.jar");           
-            return readlinkat(dirfd, pathname, buffer, bufsize);
-     }
-     
- //   console.log("readlinkat : ", pathname.readCString(), buffer.readCString());
-   return retval;
-}, 'int', ['int', 'pointer', 'pointer', 'int']))
-
-
-Interceptor.attach(Module.findExportByName(null, "strstr"),{
-    onEnter: function(args){
+Interceptor.attach(Module.findExportByName(null, "strstr"), {
+    onEnter: function(args) {
         this.frida = false;
-        var str1 = args[0].readCString();
-        var str2 = args[1].readCString();      
-        if(str1.indexOf("frida")!==-1  || str2.indexOf("frida")!==-1 ||
-          str1.indexOf("gum-js-loop")!==-1 || str2.indexOf("gum-js-loop")!==-1 ||
-          str1.indexOf("gmain")!==-1 || str2.indexOf("gmain")!==-1 ||
-          str1.indexOf("linjector")!==-1  || str2.indexOf("linjector")!==-1 ||
-          str1.indexOf("/data/local/tmp")!==-1  || str2.indexOf("/data/local/tmp")!==-1 ||
-          str1.indexOf("pool-frida")!==-1  || str2.indexOf("pool-frida")!==-1 ||
-          str1.indexOf("frida_agent_main")!==-1  || str2.indexOf("frida_agent_main")!==-1 ||
-          str1.indexOf("re.frida.server")!==-1  || str2.indexOf("re.frida.server")!==-1 ||
-          str1.indexOf("frida-agent")!==-1  || str2.indexOf("frida-agent")!==-1 ||
-          str1.indexOf("frida-agent-64.so")!==-1  || str2.indexOf("frida-agent-64.so")!==-1 ||
-          str1.indexOf("frida-agent-32.so")!==-1  || str2.indexOf("frida-agent-32.so")!==-1 ||
-          str1.indexOf("frida-helper-32.so")!==-1  || str2.indexOf("frida-helper-32.so")!==-1 ||
-          str1.indexOf("frida-helper-64.so")!==-1  || str2.indexOf("frida-helper-64.so")!==-1  ||
-          str1.indexOf("/sbin/.magisk")!==-1  || str2.indexOf("/sbin/.magisk")!==-1  ||
-          str1.indexOf("libriru")!==-1  || str2.indexOf("libriru")!==-1  ||
-          str1.indexOf("magisk")!==-1  || str2.indexOf("magisk")!==-1  
-                                         
-          ){          
+        const str1 = args[0].readCString();
+        const str2 = args[1].readCString();
+        if (str1.includes("frida") || str2.includes("frida") ||
+            str1.includes("gum-js-loop") || str2.includes("gum-js-loop") ||
+            str1.includes("gmain") || str2.includes("gmain") ||
+            str1.includes("linjector") || str2.includes("linjector") ||
+            str1.includes("/data/local/tmp") || str2.includes("/data/local/tmp") ||
+            str1.includes("pool-frida") || str2.includes("pool-frida") ||
+            str1.includes("frida_agent_main") || str2.includes("frida_agent_main") ||
+            str1.includes("re.frida.server") || str2.includes("re.frida.server") ||
+            str1.includes("frida-agent") || str2.includes("frida-agent") ||
+            str1.includes("frida-agent-64.so") || str2.includes("frida-agent-64.so") ||
+            str1.includes("frida-agent-32.so") || str2.includes("frida-agent-32.so") ||
+            str1.includes("frida-helper-32.so") || str2.includes("frida-helper-32.so") ||
+            str1.includes("frida-helper-64.so") || str2.includes("frida-helper-64.so") ||
+            str1.includes("/sbin/.magisk") || str2.includes("/sbin/.magisk") ||
+            str1.includes("libriru") || str2.includes("libriru") ||
+            str1.includes("magisk") || str2.includes("magisk")
+        ) {
             this.frida = true;
-            console.log("strstr : ",str1,str2);
+            console.log("strstr : ", str1, str2);
         }
     },
-    onLeave: function(retval){
+    onLeave: function(retval) {
         if (this.frida) {
-            retval.replace(ptr("0x0"));
+            retval.replace(ptr(0));
         }
     }
 });
 
 
-//Enabling it might give crash on some apps 
+// Enabling it might give crash on some apps 
 /*
-Interceptor.attach(Module.findExportByName("libc.so", "read"), {
+
+Interceptor.attach(read_ptr, {
     onEnter: function(args) {
         try {
-            var buffer = args[1].readCString();
-            if (buffer.indexOf("frida") >= 0) {
-                buffer = buffer.replaceAll("re.frida.server", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("frida-agent-64.so", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("rida-agent-64.so", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("agent-64.so", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("frida-agent-32.so", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("frida-helper-32", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("frida-helper", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("frida-agent", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("pool-frida", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("frida", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("/data/local/tmp", "/data");
-                buffer = buffer.replaceAll("server", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("frida-server", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("linjector", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("gum-js-loop", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("frida_agent_main", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("gmain", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("magisk", "StaySafeStayHappy");
-                buffer = buffer.replaceAll(".magisk", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("/sbin/.magisk", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("libriru", "StaySafeStayHappy");
-                buffer = buffer.replaceAll("xposed", "StaySafeStayHappy");
-                args[1].writeUtf8String(buffer);
-            }
-        } catch (e) {
-            //console.error(e);
+            const buffer = args[1].readCString()
+                .replaceAll("frida", "StaySafeStayHappy")
+                .replaceAll("re.frida.server", "StaySafeStayHappy")
+                .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
+                .replaceAll("rida-agent-64.so", "StaySafeStayHappy")
+                .replaceAll("agent-64.so", "StaySafeStayHappy")
+                .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
+                .replaceAll("frida-helper-32", "StaySafeStayHappy")
+                .replaceAll("frida-helper", "StaySafeStayHappy")
+                .replaceAll("frida-agent", "StaySafeStayHappy")
+                .replaceAll("pool-frida", "StaySafeStayHappy")
+                .replaceAll("frida", "StaySafeStayHappy")
+                .replaceAll("/data/local/tmp", "/data")
+                .replaceAll("server", "StaySafeStayHappy")
+                .replaceAll("frida-server", "StaySafeStayHappy")
+                .replaceAll("linjector", "StaySafeStayHappy")
+                .replaceAll("gum-js-loop", "StaySafeStayHappy")
+                .replaceAll("frida_agent_main", "StaySafeStayHappy")
+                .replaceAll("gmain", "StaySafeStayHappy")
+                .replaceAll("magisk", "StaySafeStayHappy")
+                .replaceAll(".magisk", "StaySafeStayHappy")
+                .replaceAll("/sbin/.magisk", "StaySafeStayHappy")
+                .replaceAll("libriru", "StaySafeStayHappy")
+                .replaceAll("xposed", "StaySafeStayHappy");
+            args[1].writeUtf8String(buffer);
         }
+    } catch (e) {
+        // console.error(e);
     }
 });
-*/
-/*
-var fopenPtr = Module.findExportByName("libc.so", "fopen");
-var fopen = new NativeFunction(fopenPtr, 'pointer', ['pointer', 'pointer']);
-Interceptor.replace(fopenPtr, new NativeCallback(function(path, mode) {
-    var FD = fopen(path, mode);
-    // console.warn(FD);
-    var ch = path.readCString();  
-   
-    if (ch.indexOf("/proc") >=0  && ch.indexOf("maps") >=0) {     
-         console.log("fopen : ", path.readCString())         
-        // FMapsFile.write("StaySafe");            
-        while (parseInt(read(FD, FopenBuffer, 512)) !== 0) {
-        var MBuffer = MapsBuffer.readCString();                                                           
-        var FOBuffer = MapsBuffer.readCString();                                                           
-        FOBuffer = FOBuffer.replaceAll("frida-agent-64.so","StaySafeStayHappy");
-        FOBuffer = FOBuffer.replaceAll("frida-agent-32.so","StaySafeStayHappy");
-        FOBuffer = FOBuffer.replaceAll("re.frida.server","StaySafeStayHappy");
-        FOBuffer = FOBuffer.replaceAll("frida-helper-32","StaySafeStayHappy");        
-        FOBuffer = FOBuffer.replaceAll("frida-helper","StaySafeStayHappy"); 
-        FOBuffer = FOBuffer.replaceAll("frida-agent","StaySafeStayHappy");        
-        FOBuffer = FOBuffer.replaceAll("pool-frida","StaySafeStayHappy");            
-        FOBuffer = FOBuffer.replaceAll("frida","StaySafeStayHappy");
-        FOBuffer = FOBuffer.replaceAll("/data/local/tmp","/data");
-        FOBuffer = FOBuffer.replaceAll("frida-server","StaySafeStayHappy");
-        FOBuffer = FOBuffer.replaceAll("linjector","StaySafeStayHappy");
-        FOBuffer = FOBuffer.replaceAll("gum-js-loop","StaySafeStayHappy");
-        FOBuffer = FOBuffer.replaceAll("frida_agent_main","StaySafeStayHappy");
-        FOBuffer = FOBuffer.replaceAll("gmain","StaySafeStayHappy");                    
-        FMapsFile.write(FOBuffer);                                                      
-                }                
-                var FN = Memory.allocUtf8String(FOpenMaps);
-                return fopen(FN, mode);                 
-    }  
-    return FD;
-}, 'pointer', ['pointer', 'pointer']))
-*/
-/*
-var open64Ptr = Module.findExportByName("libc.so", "open64");
-var open64 = new NativeFunction(open64Ptr, 'int', ['pointer', 'int']);
-Interceptor.replace(open64Ptr, new NativeCallback(function(pathname, flag) {
-    var FDR = open64(pathname, flag);
-    var Path = pathname.readCString();
-      if (Path.indexOf("/proc/") >=0 && Path.indexOf("maps") >=0) {     
-       //  console.log("open : ", pathname.readCString()) 
-        while (parseInt(read(FDR, Open64MapsBuffer, 512)) !== 0) {
-        var MBuffer = Open64MapsBuffer.readCString();                
-        MBuffer = MBuffer.replaceAll("/data/local/tmp/re.frida.server/frida-agent-64.so","FakingMaps");  
-        MBuffer = MBuffer.replaceAll("re.frida.server","FakingMaps");                                                             
-        MBuffer = MBuffer.replaceAll("frida-agent-64.so","FakingMaps");
-        MBuffer = MBuffer.replaceAll("rida-agent-64.so","FakingMaps");
-        MBuffer = MBuffer.replaceAll("agent-64.so","FakingMaps");        
-        MBuffer = MBuffer.replaceAll("frida-agent-32.so","FakingMaps");       
-        MBuffer = MBuffer.replaceAll("frida-helper-32","FakingMaps");        
-        MBuffer = MBuffer.replaceAll("frida-helper","FakingMaps"); 
-        MBuffer = MBuffer.replaceAll("frida-agent","FakingMaps");        
-        MBuffer = MBuffer.replaceAll("pool-frida","FakingMaps");            
-        MBuffer = MBuffer.replaceAll("frida","FakingMaps");
-        MBuffer = MBuffer.replaceAll("frida-","FakingMaps");
-        MBuffer = MBuffer.replaceAll("/data/local/tmp","/data");
-        MBuffer = MBuffer.replaceAll("server","FakingMaps");
-        MBuffer = MBuffer.replaceAll("frida-server","FakingMaps");
-        MBuffer = MBuffer.replaceAll("linjector","FakingMaps");
-        MBuffer = MBuffer.replaceAll("gum-js-loop","FakingMaps");
-        MBuffer = MBuffer.replaceAll("frida_agent_main","FakingMaps");
-        MBuffer = MBuffer.replaceAll("gmain","FakingMaps");
-        MBuffer = MBuffer.replaceAll("frida","FakingMaps");
-        MBuffer = MBuffer.replaceAll("magisk","FakingMaps"); 
-        MBuffer = MBuffer.replaceAll(".magisk","FakingMaps"); 
-        MBuffer = MBuffer.replaceAll("/sbin/.magisk","FakingMaps");         
-        MBuffer = MBuffer.replaceAll("libriru","FakingMaps");  
-        MBuffer = MBuffer.replaceAll("xposed","FakingMaps");
-        
-        
-        MapsFile.write(MBuffer);   
-             console.log("MBuffer : ",MBuffer);                                     
-                }
-                var filename = Memory.allocUtf8String(FakeMaps);
-                return open64(filename, flag);  
-    }
-    return FDR;
-}, 'int', ['pointer', 'int']))
 
-*/
-/*
-var memcpyPtr = Module.findExportByName("libc.so", "memcpy");
-var memcpy = new NativeFunction(memcpyPtr, 'pointer', ['pointer', 'pointer', 'int']);
-Interceptor.replace(memcpyPtr, new NativeCallback(function(dest, src, len) {
-    var retval = memcpy(dest, src, len);
-    if(dest.readCString() != null && src.readCString() != null && (dest.readCString().indexOf("frida")>=0 || src.readCString().indexOf("frida")>=0) )
-    {
-        //console.warn("memcpy : ",dest.readCString(),src.readCString());
-        var buffer = dest.readCString();
-        var buffer2 = src.readCString();
-        buffer = buffer.replaceAll("re.frida.server","StaySafeStayHappy");                                                         
-        buffer = buffer.replaceAll("frida-agent-64.so","StaySafeStayHappy");
-        buffer = buffer.replaceAll("rida-agent-64.so","StaySafeStayHappy");
-        buffer = buffer.replaceAll("agent-64.so","StaySafeStayHappy");        
-        buffer = buffer.replaceAll("frida-agent-32.so","StaySafeStayHappy");       
-        buffer = buffer.replaceAll("frida-helper-32","StaySafeStayHappy");        
-        buffer = buffer.replaceAll("frida-helper","StaySafeStayHappy"); 
-        buffer = buffer.replaceAll("frida-agent","StaySafeStayHappy");        
-        buffer = buffer.replaceAll("pool-frida","StaySafeStayHappy");            
-        buffer = buffer.replaceAll("frida","StaySafeStayHappy");
-        buffer = buffer.replaceAll("/data/local/tmp","/data");
-        buffer = buffer.replaceAll("server","StaySafeStayHappy");
-        buffer = buffer.replaceAll("frida-server","StaySafeStayHappy");
-        buffer = buffer.replaceAll("linjector","StaySafeStayHappy");
-        buffer = buffer.replaceAll("gum-js-loop","StaySafeStayHappy");
-        buffer = buffer.replaceAll("frida_agent_main","StaySafeStayHappy");
-        buffer = buffer.replaceAll("gmain","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("re.frida.server","StaySafeStayHappy");                                                         
-        buffer2 = buffer2.replaceAll("frida-agent-64.so","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("rida-agent-64.so","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("agent-64.so","StaySafeStayHappy");        
-        buffer2 = buffer2.replaceAll("frida-agent-32.so","StaySafeStayHappy");       
-        buffer2 = buffer2.replaceAll("frida-helper-32","StaySafeStayHappy");        
-        buffer2 = buffer2.replaceAll("frida-helper","StaySafeStayHappy"); 
-        buffer2 = buffer2.replaceAll("frida-agent","StaySafeStayHappy");        
-        buffer2 = buffer2.replaceAll("pool-frida","StaySafeStayHappy");            
-        buffer2 = buffer2.replaceAll("frida","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("/data/local/tmp","/data");
-        buffer2 = buffer2.replaceAll("server","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("frida-server","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("linjector","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("gum-js-loop","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("frida_agent_main","StaySafeStayHappy");
-        buffer2 = buffer2.replaceAll("gmain","StaySafeStayHappy");
+Interceptor.replace(fopen_ptr, new NativeCallback(function(pathname, mode) {
+    const fd = fopen(path, mode);
+    // console.warn(fd);
+    const path = pathname.readCString();
+    if (path.includes("/proc/")) {
+        if (path.includes("maps")) {
+            console.log("fopen : ", path);
+            // maps.write("StaySafe");
+            while (parseInt(read(FD, fopen_buf, 512)) !== 0) {
+                const buffer = fopen_buf.readCString()
+                    .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
+                    .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
+                    .replaceAll("re.frida.server", "StaySafeStayHappy")
+                    .replaceAll("frida-helper-32", "StaySafeStayHappy")
+                    .replaceAll("frida-helper", "StaySafeStayHappy")
+                    .replaceAll("frida-agent", "StaySafeStayHappy")
+                    .replaceAll("pool-frida", "StaySafeStayHappy")
+                    .replaceAll("frida", "StaySafeStayHappy")
+                    .replaceAll("/data/local/tmp", "/data")
+                    .replaceAll("frida-server", "StaySafeStayHappy")
+                    .replaceAll("linjector", "StaySafeStayHappy")
+                    .replaceAll("gum-js-loop", "StaySafeStayHappy")
+                    .replaceAll("frida_agent_main", "StaySafeStayHappy")
+                    .replaceAll("gmain", "StaySafeStayHappy");
+                maps.write(buffer);
+            }
+            return fopen(Memory.allocUtf8String(fake_maps), mode);
+        }
+    }
+    return fd;
+}, "pointer", ["pointer", "pointer"]));
+
+if (Process.arch.includes("64")) {
+    const open64_ptr = find("open64");
+    const open64 = new NativeFunction(open64_ptr, "int", ["pointer", "int"]);
+    Interceptor.replace(open64_ptr, new NativeCallback(function(pathname, flag) {
+        const fd = open64(pathname, flag);
+        const path = pathname.readCString();
+        if (path.includes("/proc/")) {
+            if (path.includes("maps")) {
+                // console.log("open64 : ", pathname.readCString()) 
+                while (parseInt(read(fd, open64_buf, 512)) !== 0) {
+                    const buffer = open64_buf.readCString()
+                        .replaceAll("/data/local/tmp/re.frida.server/frida-agent-64.so", "FakingMaps")
+                        .replaceAll("re.frida.server", "FakingMaps")
+                        .replaceAll("frida-agent-64.so", "FakingMaps")
+                        .replaceAll("rida-agent-64.so", "FakingMaps")
+                        .replaceAll("agent-64.so", "FakingMaps")
+                        .replaceAll("frida-agent-32.so", "FakingMaps")
+                        .replaceAll("frida-helper-32", "FakingMaps")
+                        .replaceAll("frida-helper", "FakingMaps")
+                        .replaceAll("frida-agent", "FakingMaps")
+                        .replaceAll("pool-frida", "FakingMaps")
+                        .replaceAll("frida", "FakingMaps")
+                        .replaceAll("frida-", "FakingMaps")
+                        .replaceAll("/data/local/tmp", "/data")
+                        .replaceAll("server", "FakingMaps")
+                        .replaceAll("frida-server", "FakingMaps")
+                        .replaceAll("linjector", "FakingMaps")
+                        .replaceAll("gum-js-loop", "FakingMaps")
+                        .replaceAll("frida_agent_main", "FakingMaps")
+                        .replaceAll("gmain", "FakingMaps")
+                        .replaceAll("frida", "FakingMaps")
+                        .replaceAll("magisk", "FakingMaps")
+                        .replaceAll(".magisk", "FakingMaps")
+                        .replaceAll("/sbin/.magisk", "FakingMaps")
+                        .replaceAll("libriru", "FakingMaps")
+                        .replaceAll("xposed", "FakingMaps");
+                    maps.write(buffer);
+                    console.log("buffer : ", buffer);
+                }
+                return open64(Memory.allocUtf8String(fake_maps), flag);
+            }
+        }
+        return fd;
+    }, "int", ["pointer", "int"]));
+}
+
+Interceptor.replace(memcpy_ptr, new NativeCallback(function(dest, src, len) {
+    const retval = memcpy(dest, src, len);
+    const str1 = dest.readCString();
+    const str2 = src.readCString();
+    if (str1 != null && str2 != null && (str1.includes("frida") || str2.includes("frida"))) {
+        // console.warn("memcpy : ", str1, str2);
+        const buffer = str1
+            .replaceAll("re.frida.server", "StaySafeStayHappy")
+            .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
+            .replaceAll("rida-agent-64.so", "StaySafeStayHappy")
+            .replaceAll("agent-64.so", "StaySafeStayHappy")
+            .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
+            .replaceAll("frida-helper-32", "StaySafeStayHappy")
+            .replaceAll("frida-helper", "StaySafeStayHappy")
+            .replaceAll("frida-agent", "StaySafeStayHappy")
+            .replaceAll("pool-frida", "StaySafeStayHappy")
+            .replaceAll("frida", "StaySafeStayHappy")
+            .replaceAll("/data/local/tmp", "/data")
+            .replaceAll("server", "StaySafeStayHappy")
+            .replaceAll("frida-server", "StaySafeStayHappy")
+            .replaceAll("linjector", "StaySafeStayHappy")
+            .replaceAll("gum-js-loop", "StaySafeStayHappy")
+            .replaceAll("frida_agent_main", "StaySafeStayHappy")
+            .replaceAll("gmain", "StaySafeStayHappy");
+        const buffer2 = str2
+            .replaceAll("re.frida.server", "StaySafeStayHappy")
+            .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
+            .replaceAll("rida-agent-64.so", "StaySafeStayHappy")
+            .replaceAll("agent-64.so", "StaySafeStayHappy")
+            .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
+            .replaceAll("frida-helper-32", "StaySafeStayHappy")
+            .replaceAll("frida-helper", "StaySafeStayHappy")
+            .replaceAll("frida-agent", "StaySafeStayHappy")
+            .replaceAll("pool-frida", "StaySafeStayHappy")
+            .replaceAll("frida", "StaySafeStayHappy")
+            .replaceAll("/data/local/tmp", "/data")
+            .replaceAll("server", "StaySafeStayHappy")
+            .replaceAll("frida-server", "StaySafeStayHappy")
+            .replaceAll("linjector", "StaySafeStayHappy")
+            .replaceAll("gum-js-loop", "StaySafeStayHappy")
+            .replaceAll("frida_agent_main", "StaySafeStayHappy")
+            .replaceAll("gmain", "StaySafeStayHappy");
         dest.writeUtf8String(buffer);
         src.writeUtf8String(buffer2);
-       // console.log(buffer,buffer2);
+        // console.log(buffer, buffer2);
         return memcpy(dest, src, len);
     }
     return retval;
-}, 'pointer', ['pointer', 'pointer', 'int']))
+}, "pointer", ["pointer", "pointer", "int"]));
+
 */

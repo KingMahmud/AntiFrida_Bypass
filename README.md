@@ -1,14 +1,15 @@
 # AntiFrida_Bypass
-Generic Script To Bypass Some AntiFrida Checks
 
-Please Star or Fork it if you use it -> it give confidence that community likes it
+Generic script to vypass some frida checks(anti frida)
 
-Feel Free to send more Bypass as a PR or Improve it.
+Please star or fork it if you use it -> it will give me confidence that the community likes it
 
-Note - It won't support for Bypassing Frida Checks with Direct Syscalls yet 
+Feel free to send more bypasses as a PR or improve it.
+
+PS : It won't support for bypassing frida checks with direct syscalls yet
 
 Roadmap -
-1. Add Syscall Check Bypass
-2. Add More Frida Strings
-3. Add More Method which Might check Frida Presence
-4. something you guys can suggest me
+1. Add syscall check bypass
+2. Add more frida strings
+3. Add more method which might check frida's presence
+4. Something you guys can suggest me
