@@ -5,7 +5,7 @@
 */
 
 const libc = Process.getModuleByName("libc.so");
-const find = libc.findExportByName;
+const find = (exp) => libc.findExportByName.call(libc, name);
 
 const pthread_create_ptr = find("pthread_create");
 const pthread_create = new NativeFunction(pthread_create_ptr, "int", ["pointer", "pointer", "pointer", "pointer"]);
@@ -61,7 +61,7 @@ const process_name = getProcessName();
 
 const library_name = "libxyz.so";
 
-Interceptor.replace(pthread_create_ptr, new NativeCallback(function(ptr0, ptr1, ptr2, ptr3) {
+Interceptor.replace(pthread_create_ptr, new NativeCallback(function (ptr0, ptr1, ptr2, ptr3) {
     const lib_base = Module.findBaseAddress(library_name);
     const ptr0_name = getModuleNameFromAddress(ptr0);
     if (ptr0_name == library_name) {
@@ -71,10 +71,10 @@ Interceptor.replace(pthread_create_ptr, new NativeCallback(function(ptr0, ptr1, 
     if (ptr1_name == library_name) {
         console.log("Thread created ptr1 : ", ptr1_name, lib_base, ptr1.sub(lib_base));
         Interceptor.attach(lib_base.add(ptr1.sub(lib_base)), {
-            onEnter: function(args) {
+            onEnter: function (args) {
                 console.log("New thread func", ptr1.sub(lib_base), "args : ", args[0], args[1]);
             },
-            onLeave: function(retval) {
+            onLeave: function (retval) {
                 console.log("New thread func return : ", retval);
             }
         });
@@ -83,10 +83,10 @@ Interceptor.replace(pthread_create_ptr, new NativeCallback(function(ptr0, ptr1, 
     if (ptr2_name == library_name) {
         console.log("Thread created ptr2 : ", ptr2_name, lib_base, ptr2.sub(lib_base));
         Interceptor.attach(lib_base.add(ptr2.sub(lib_base)), {
-            onEnter: function(args) {
+            onEnter: function (args) {
                 console.log("New thread func", ptr2.sub(lib_base), "args : ", args[0], args[1]);
             },
-            onLeave: function(retval) {
+            onLeave: function (retval) {
                 console.log("New thread func return : ", retval);
             }
         });
@@ -95,10 +95,10 @@ Interceptor.replace(pthread_create_ptr, new NativeCallback(function(ptr0, ptr1, 
     if (ptr3_name == library_name) {
         console.log("Thread created ptr3 : ", ptr3_name, lib_base, ptr3.sub(lib_base));
         Interceptor.attach(lib_base.add(ptr3.sub(lib_base)), {
-            onEnter: function(args) {
+            onEnter: function (args) {
                 console.log("New thread func", ptr3.sub(lib_base), "args : ", args[0], args[1]);
             },
-            onLeave: function(retval) {
+            onLeave: function (retval) {
                 console.log("New thread func return : ", retval);
             }
         });
@@ -126,43 +126,43 @@ function getModuleNameFromAddress(addr) {
 
 // Few methods might check frida's presence so added them if process freeze you can comment these
 
-Interceptor.replace(inet_aton_ptr, new NativeCallback(function(addrs, structure) {
+Interceptor.replace(inet_aton_ptr, new NativeCallback(function (addrs, structure) {
     const retval = inet_aton(addrs, structure);
     console.log("inet_aton : ", addrs.readCString());
     return retval;
 }, "int", ["pointer", "pointer"]));
 
-Interceptor.replace(popen_ptr, new NativeCallback(function(path, type) {
+Interceptor.replace(popen_ptr, new NativeCallback(function (path, type) {
     const retval = popen(path, type);
     console.log("popen : ", path.readCString());
     return retval;
 }, "pointer", ["pointer", "pointer"]));
 
-Interceptor.replace(symlink_ptr, new NativeCallback(function(target, path) {
+Interceptor.replace(symlink_ptr, new NativeCallback(function (target, path) {
     const retval = symlink(target, path);
     console.log("symlink: ", target.readCString(), path.readCString());
     return retval;
 }, "int", ["pointer", "pointer"]));
 
-Interceptor.replace(symlinkat_ptr, new NativeCallback(function(target, fd, path) {
+Interceptor.replace(symlinkat_ptr, new NativeCallback(function (target, fd, path) {
     const retval = symlinkat(target, fd, path);
     console.log("symlinkat : ", target.readCString(), path.readCString());
     return retval;
 }, "int", ["pointer", "int", "pointer"]));
 
-Interceptor.replace(inet_addr_ptr, new NativeCallback(function(path) {
+Interceptor.replace(inet_addr_ptr, new NativeCallback(function (path) {
     const retval = inet_addr(path);
     console.log("inet_addr : ", path.readCString())
     return retval;
 }, "int", ["pointer"]));
 
-Interceptor.replace(socket_ptr, new NativeCallback(function(domain, type, proto) {
+Interceptor.replace(socket_ptr, new NativeCallback(function (domain, type, proto) {
     const retval = socket(domain, type, proto);
     console.warn("socket  : ", domain, type, proto, "Return : ", retval)
     return retval;
 }, "int", ["int", "int", "int"]));
 
-Interceptor.replace(connect_ptr, new NativeCallback(function(fd, addr, len) {
+Interceptor.replace(connect_ptr, new NativeCallback(function (fd, addr, len) {
     const retval = connect(fd, addr, len);
     const family = addr.readU16();
     let port = addr.add(2).readU16();
@@ -171,13 +171,13 @@ Interceptor.replace(connect_ptr, new NativeCallback(function(fd, addr, len) {
     return retval;
 }, "int", ["int", "pointer", "int"]));
 
-Interceptor.replace(send_ptr, new NativeCallback(function(socksfd, msg, slen, flag, daddr, dlen) {
+Interceptor.replace(send_ptr, new NativeCallback(function (socksfd, msg, slen, flag, daddr, dlen) {
     const retval = send_(socksfd, msg, slen, flag);
     console.log("send : ", socksfd, msg.readCString(), slen, flag);
     return retval;
 }, "int", ["int", "pointer", "int", "int"]));
 
-Interceptor.replace(sendto_ptr, new NativeCallback(function(socksfd, msg, slen, flag, daddr, dlen) {
+Interceptor.replace(sendto_ptr, new NativeCallback(function (socksfd, msg, slen, flag, daddr, dlen) {
     const retval = sendto(socksfd, msg, slen, flag, daddr, dlen);
     // console.log("sendto : ", socksfd, msg.readCString(), slen, flag, daddr, dlen);
     return retval;
@@ -202,10 +202,10 @@ const mounts = new File(fake_mounts, "w");
 const status = new File(fake_status, "w");
 
 const open_buf = Memory.alloc(512);
-const fopen_buf = Memory.alloc(512);
-const open64_buf = Memory.alloc(512);
 
-Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
+const fopen_buf = Memory.alloc(512);
+
+Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
     const fd = open(pathname, flag);
     const path = pathname.readCString();
     /*
@@ -316,7 +316,7 @@ Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
             while (parseInt(read(fd, open_buf, 512)) !== 0) {
                 let buffer = open_buf.readCString();
                 //  console.warn(buffer)
-                .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
+                buffer = buffer.replaceAll("frida-agent-64.so", "StaySafeStayHappy")
                     .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
                     .replaceAll("re.frida.server", "StaySafeStayHappy")
                     .replaceAll("frida-helper-32", "StaySafeStayHappy")
@@ -338,7 +338,7 @@ Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
     return fd;
 }, "int", ["pointer", "int"]));
 
-Interceptor.replace(fgets_ptr, new NativeCallback(function(buf, size, fp) {
+Interceptor.replace(fgets_ptr, new NativeCallback(function (buf, size, fp) {
     // const retval = fgets(buf, size, fp);
     const buffer = buf.readCString()
         .replaceAll("re.frida.server", "FakingGets")
@@ -368,7 +368,7 @@ Interceptor.replace(fgets_ptr, new NativeCallback(function(buf, size, fp) {
     return fgets(buf, size, fp);
 }, "pointer", ["pointer", "int", "pointer"]));
 
-Interceptor.replace(readlink_ptr, new NativeCallback(function(pathname, buffer, bufsize) {
+Interceptor.replace(readlink_ptr, new NativeCallback(function (pathname, buffer, bufsize) {
     const retval = readlink(pathname, buffer, bufsize);
     const str = buffer.readCString();
     if (str.includes("frida") ||
@@ -393,7 +393,7 @@ Interceptor.replace(readlink_ptr, new NativeCallback(function(pathname, buffer, 
     return retval;
 }, "int", ["pointer", "pointer", "int"]))
 
-Interceptor.replace(readlinkat_ptr, new NativeCallback(function(dirfd, pathname, buffer, bufsize) {
+Interceptor.replace(readlinkat_ptr, new NativeCallback(function (dirfd, pathname, buffer, bufsize) {
     const retval = readlinkat(dirfd, pathname, buffer, bufsize);
     const str = buffer.readCString();
     if (str.includes("frida") ||
@@ -419,7 +419,7 @@ Interceptor.replace(readlinkat_ptr, new NativeCallback(function(dirfd, pathname,
 }, "int", ["int", "pointer", "pointer", "int"]))
 
 Interceptor.attach(Module.findExportByName(null, "strstr"), {
-    onEnter: function(args) {
+    onEnter: function (args) {
         this.frida = false;
         const str1 = args[0].readCString();
         const str2 = args[1].readCString();
@@ -444,7 +444,7 @@ Interceptor.attach(Module.findExportByName(null, "strstr"), {
             console.log("strstr : ", str1, str2);
         }
     },
-    onLeave: function(retval) {
+    onLeave: function (retval) {
         if (this.frida) {
             retval.replace(ptr(0));
         }
@@ -488,38 +488,6 @@ Interceptor.attach(read_ptr, {
         // console.error(e);
     }
 });
-
-Interceptor.replace(fopen_ptr, new NativeCallback(function(pathname, mode) {
-    const fd = fopen(path, mode);
-    // console.warn(fd);
-    const path = pathname.readCString();
-    if (path.includes("/proc/")) {
-        if (path.includes("maps")) {
-            console.log("fopen : ", path);
-            // maps.write("StaySafe");
-            while (parseInt(read(FD, fopen_buf, 512)) !== 0) {
-                const buffer = fopen_buf.readCString()
-                    .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
-                    .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
-                    .replaceAll("re.frida.server", "StaySafeStayHappy")
-                    .replaceAll("frida-helper-32", "StaySafeStayHappy")
-                    .replaceAll("frida-helper", "StaySafeStayHappy")
-                    .replaceAll("frida-agent", "StaySafeStayHappy")
-                    .replaceAll("pool-frida", "StaySafeStayHappy")
-                    .replaceAll("frida", "StaySafeStayHappy")
-                    .replaceAll("/data/local/tmp", "/data")
-                    .replaceAll("frida-server", "StaySafeStayHappy")
-                    .replaceAll("linjector", "StaySafeStayHappy")
-                    .replaceAll("gum-js-loop", "StaySafeStayHappy")
-                    .replaceAll("frida_agent_main", "StaySafeStayHappy")
-                    .replaceAll("gmain", "StaySafeStayHappy");
-                maps.write(buffer);
-            }
-            return fopen(Memory.allocUtf8String(fake_maps), mode);
-        }
-    }
-    return fd;
-}, "pointer", ["pointer", "pointer"]));
 
 if (Process.arch.includes("64")) {
     const open64_ptr = find("open64");
