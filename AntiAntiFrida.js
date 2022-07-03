@@ -5,7 +5,7 @@
 */
 
 const libc = Process.getModuleByName("libc.so");
-const find = (exp) => libc.findExportByName.call(libc, name);
+const find = (exp) => libc.findExportByName.call(libc, exp);
 
 const pthread_create_ptr = find("pthread_create");
 const pthread_create = new NativeFunction(pthread_create_ptr, "int", ["pointer", "pointer", "pointer", "pointer"]);
@@ -40,8 +40,6 @@ const readlink_ptr = find("readlink");
 const readlink = new NativeFunction(readlink_ptr, "int", ["pointer", "pointer", "int"]);
 const readlinkat_ptr = find("readlinkat");
 const readlinkat = new NativeFunction(readlinkat_ptr, "int", ["int", "pointer", "pointer", "int"]);
-const fopen_ptr = find("fopen");
-const fopen = new NativeFunction(fopen_ptr, "pointer", ["pointer", "pointer"]);
 const memcpy_ptr = find("memcpy");
 const memcpy = new NativeFunction(memcpy_ptr, "pointer", ["pointer", "pointer", "int"]);
 
@@ -188,7 +186,6 @@ Interceptor.replace(sendto_ptr, new NativeCallback(function (socksfd, msg, slen,
 console.log(process_name);
 
 const fake_maps = "/data/data/" + process_name + "/maps";
-const fake_fmaps = "/data/data/" + process_name + "/fmaps";
 const fake_task = "/data/data/" + process_name + "/task";
 const fake_exe = "/data/data/" + process_name + "/exe";
 const fake_mounts = "/data/data/" + process_name + "/mounts";
@@ -197,13 +194,16 @@ const fake_status = "/data/data/" + process_name + "/status";
 const maps = new File(fake_maps, "w");
 const task = new File(fake_task, "w");
 const exe = new File(fake_exe, "w");
-const fmaps = new File(fake_fmaps, "w");
 const mounts = new File(fake_mounts, "w");
 const status = new File(fake_status, "w");
 
-const open_buf = Memory.alloc(512);
+const maps_buf = Memory.alloc(512);
+const task_buf = Memory.alloc(512);
+const exe_buf = Memory.alloc(512);
+const mounts_buf = Memory.alloc(512);
+const status_buf = Memory.alloc(512);
 
-const fopen_buf = Memory.alloc(512);
+// const map_open64_buf = Memory.alloc(512);
 
 Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
     const fd = open(pathname, flag);
@@ -216,8 +216,8 @@ Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
     if (path.includes("/proc/")) {
         if (path.includes("maps")) {
             console.log("open : ", path);
-            while (parseInt(read(fd, open_buf, 512)) !== 0) {
-                const buffer = open_buf.readCString()
+            while (parseInt(read(fd, maps_buf, 512)) !== 0) {
+                const buffer = maps.readCString()
                     .replaceAll("/data/local/tmp/re.frida.server/frida-agent-64.so", "FakingMaps")
                     .replaceAll("re.frida.server", "FakingMaps")
                     .replaceAll("re.frida", "FakingMaps")
@@ -250,11 +250,10 @@ Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
                 // console.log("buffer : ", buffer);                                     
             }
             return open(Memory.allocUtf8String(fake_maps), flag);
-        }
-        if (path.includes("task")) {
+        }else if (path.includes("task")) {
             console.log("open : ", path);
-            while (parseInt(read(fd, open_buf, 512)) !== 0) {
-                const buffer = open_buf.readCString()
+            while (parseInt(read(fd, task_buf, 512)) !== 0) {
+                const buffer = task_buf.readCString()
                     .replaceAll("re.frida.server", "FakingTask")
                     .replaceAll("frida-agent-64.so", "FakingTask")
                     .replaceAll("rida-agent-64.so", "FakingTask")
@@ -281,40 +280,10 @@ Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
                 // console.log(buffer);
             }
             return open(Memory.allocUtf8String(fake_task), flag);
-        }
-        if (path.includes("mounts")) {
+        }else if (path.includes("exe")) {
             console.log("open : ", path);
-            while (parseInt(read(fd, open_buf, 512)) !== 0) {
-                const buffer = open_buf.readCString()
-                    .replaceAll("magisk", "StaySafeStayHappy")
-                    .replaceAll("/sbin/.magisk", "StaySafeStayHappy")
-                    .replaceAll("libriru", "StaySafeStayHappy")
-                    .replaceAll("xposed", "StaySafeStayHappy")
-                    .replaceAll("mirror", "StaySafeStayHappy")
-                    .replaceAll("system_root", "StaySafeStayHappy");
-                mounts.write(buffer);
-                // console.log("buffer : ", buffer);                                     
-            }
-            return open(Memory.allocUtf8String(fake_mounts), flag);
-        }
-        /*
-        if (path.includes("status")) {
-            console.log("open : ", path);
-            while (parseInt(read(fd, open_buf, 512)) !== 0) {
-                const PStatus = open_buf.readCString();
-                if (PStatus.includes("TracerPid:")) {
-                    open_buf.writeUtf8String("TracerPid:\t0");
-                    console.log("Bypassing TracerPID Check");
-                }
-                status.write(PStatus);
-            }
-            return open(Memory.allocUtf8String(fake_status), flag);
-        }
-        */
-        if (path.includes("exe")) {
-            console.log("open : ", path);
-            while (parseInt(read(fd, open_buf, 512)) !== 0) {
-                let buffer = open_buf.readCString();
+            while (parseInt(read(fd, exe_buf, 512)) !== 0) {
+                let buffer = exe_buf.readCString();
                 //  console.warn(buffer)
                 buffer = buffer.replaceAll("frida-agent-64.so", "StaySafeStayHappy")
                     .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
@@ -333,6 +302,37 @@ Interceptor.replace(open_ptr, new NativeCallback(function (pathname, flag) {
                 exe.write(buffer);
             }
             return open(Memory.allocUtf8String(fake_exe), flag);
+        }else if (path.includes("mounts")) {
+            console.log("open : ", path);
+            while (parseInt(read(fd, mounts_buf, 512)) !== 0) {
+                const buffer = mounts_buf.readCString()
+                    .replaceAll("magisk", "StaySafeStayHappy")
+                    .replaceAll("/sbin/.magisk", "StaySafeStayHappy")
+                    .replaceAll("libriru", "StaySafeStayHappy")
+                    .replaceAll("xposed", "StaySafeStayHappy")
+                    .replaceAll("mirror", "StaySafeStayHappy")
+                    .replaceAll("system_root", "StaySafeStayHappy");
+                mounts.write(buffer);
+                // console.log("buffer : ", buffer);                                     
+            }
+            return open(Memory.allocUtf8String(fake_mounts), flag);
+        }
+        /*
+        else if (path.includes("status")) {
+            console.log("open : ", path);
+            while (parseInt(read(fd, status_buf, 512)) !== 0) {
+                const PStatus = status_buf.readCString();
+                if (PStatus.includes("TracerPid:")) {
+                    open_buf.writeUtf8String("TracerPid:\t0");
+                    console.log("Bypassing TracerPID Check");
+                }
+                status.write(PStatus);
+            }
+            return open(Memory.allocUtf8String(fake_status), flag);
+        }
+        */
+        else {
+        return fd;
         }
     }
     return fd;
@@ -489,6 +489,7 @@ Interceptor.attach(read_ptr, {
     }
 });
 
+// TODO : Rethink the necessity of this
 if (Process.arch.includes("64")) {
     const open64_ptr = find("open64");
     const open64 = new NativeFunction(open64_ptr, "int", ["pointer", "int"]);
@@ -498,8 +499,8 @@ if (Process.arch.includes("64")) {
         if (path.includes("/proc/")) {
             if (path.includes("maps")) {
                 // console.log("open64 : ", pathname.readCString()) 
-                while (parseInt(read(fd, open64_buf, 512)) !== 0) {
-                    const buffer = open64_buf.readCString()
+                while (parseInt(read(fd, map_open64_buf, 512)) !== 0) {
+                    const buffer = maps_open64_buf.readCString()
                         .replaceAll("/data/local/tmp/re.frida.server/frida-agent-64.so", "FakingMaps")
                         .replaceAll("re.frida.server", "FakingMaps")
                         .replaceAll("frida-agent-64.so", "FakingMaps")
