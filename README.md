@@ -6,7 +6,7 @@ Please star or fork it if you use it -> it will give me confidence that the comm
 
 Feel free to send more bypasses as a PR or improve it.
 
-PS : It won't support for bypassing frida checks with direct syscalls yet
+**PS : It won't support for bypassing frida checks with direct syscalls yet**
 
 Roadmap -
 1. Add syscall check bypass
