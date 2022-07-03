@@ -4,6 +4,8 @@
    Updated by @KingMahmud on 03/07/2022
 */
 
+const library_name = "libxyz.so";
+
 const libc = Process.getModuleByName("libc.so");
 const find = (exp) => libc.findExportByName(exp);
 
@@ -56,8 +58,6 @@ function getProcessName() {
 }
 
 const process_name = getProcessName();
-
-const library_name = "libxyz.so";
 
 Interceptor.replace(pthread_create_ptr, new NativeCallback(function(ptr0, ptr1, ptr2, ptr3) {
     const lib_base = Module.findBaseAddress(library_name);
@@ -205,6 +205,38 @@ const status_buf = Memory.alloc(512);
 
 // const map_open64_buf = Memory.alloc(512);
 
+const detection_strs = [
+    "/data/local/tmp/re.frida.server/frida-agent-64.so",
+    "re.frida.server",
+    "re.frida",
+    // "re."
+    "frida.",
+    "frida-agent",
+    "frida-agent-64.so",
+    "rida-agent-64.so",
+    "agent-64.so",
+    "frida-agent-32.so",
+    "frida-helper-32",
+    "frida-helper",
+    "pool-frida",
+    "frida",
+    "frida-",
+    // "/data/local/tmp",
+    "server",
+    "frida-server",
+    "linjector",
+    "gum-js-loop",
+    "frida_agent_main",
+    "gmain",
+    "magisk",
+    ".magisk",
+    "/sbin/.magisk",
+    "libriru",
+    "xposed",
+    "system_root",
+    "mirror"
+];
+
 Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
     const fd = open(pathname, flag);
     const path = pathname.readCString();
@@ -213,39 +245,17 @@ Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
         return fd;
     }
     */
+    if (path.includes("/data/local/tmp")) {
+        return -1;
+    }
     if (path.includes("/proc/")) {
         if (path.includes("maps")) {
             console.log("open : ", path);
             while (parseInt(read(fd, maps_buf, 512)) !== 0) {
-                const buffer = maps.readCString()
-                    .replaceAll("/data/local/tmp/re.frida.server/frida-agent-64.so", "FakingMaps")
-                    .replaceAll("re.frida.server", "FakingMaps")
-                    .replaceAll("re.frida", "FakingMaps")
-                    .replaceAll("re.", "FakingMaps")
-                    .replaceAll("frida.", "FakingMaps")
-                    .replaceAll("frida-agent-64.so", "FakingMaps")
-                    .replaceAll("rida-agent-64.so", "FakingMaps")
-                    .replaceAll("agent-64.so", "FakingMaps")
-                    .replaceAll("frida-agent-32.so", "FakingMaps")
-                    .replaceAll("frida-helper-32", "FakingMaps")
-                    .replaceAll("frida-helper", "FakingMaps")
-                    .replaceAll("frida-agent", "FakingMaps")
-                    .replaceAll("pool-frida", "FakingMaps")
-                    .replaceAll("frida", "FakingMaps")
-                    .replaceAll("frida-", "FakingMaps")
-                    .replaceAll("/data/local/tmp", "/data")
-                    .replaceAll("server", "FakingMaps")
-                    .replaceAll("frida-server", "FakingMaps")
-                    .replaceAll("linjector", "FakingMaps")
-                    .replaceAll("gum-js-loop", "FakingMaps")
-                    .replaceAll("frida_agent_main", "FakingMaps")
-                    .replaceAll("gmain", "FakingMaps")
-                    .replaceAll("frida", "FakingMaps")
-                    .replaceAll("magisk", "FakingMaps")
-                    .replaceAll(".magisk", "FakingMaps")
-                    .replaceAll("/sbin/.magisk", "FakingMaps")
-                    .replaceAll("libriru", "FakingMaps")
-                    .replaceAll("xposed", "FakingMaps");
+                let buffer = maps_buf.readCString()
+                detection_strs.forEach(str => {
+                    buffer = buffer.replaceAll(str, "FakingMaps");
+                });
                 maps.write(buffer);
                 // console.log("buffer : ", buffer);                                     
             }
@@ -253,29 +263,10 @@ Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
         } else if (path.includes("task")) {
             console.log("open : ", path);
             while (parseInt(read(fd, task_buf, 512)) !== 0) {
-                const buffer = task_buf.readCString()
-                    .replaceAll("re.frida.server", "FakingTask")
-                    .replaceAll("frida-agent-64.so", "FakingTask")
-                    .replaceAll("rida-agent-64.so", "FakingTask")
-                    .replaceAll("agent-64.so", "FakingTask")
-                    .replaceAll("frida-agent-32.so", "FakingTask")
-                    .replaceAll("frida-helper-32", "FakingTask")
-                    .replaceAll("frida-helper", "FakingTask")
-                    .replaceAll("frida-agent", "FakingTask")
-                    .replaceAll("pool-frida", "FakingTask")
-                    .replaceAll("frida", "FakingTask")
-                    .replaceAll("/data/local/tmp", "/data")
-                    .replaceAll("server", "FakingTask")
-                    .replaceAll("frida-server", "FakingTask")
-                    .replaceAll("linjector", "FakingTask")
-                    .replaceAll("gum-js-loop", "FakingTask")
-                    .replaceAll("frida_agent_main", "FakingTask")
-                    .replaceAll("gmain", "FakingTask")
-                    .replaceAll("magisk", "FakingTask")
-                    .replaceAll(".magisk", "FakingTask")
-                    .replaceAll("/sbin/.magisk", "FakingTask")
-                    .replaceAll("libriru", "FakingTask")
-                    .replaceAll("xposed", "FakingTask");
+                let buffer = task_buf.readCString()
+                detection_strs.forEach(str => {
+                    buffer = buffer.replaceAll(str, "StaySafeStayHappy");
+                });
                 task.write(buffer);
                 // console.log(buffer);
             }
@@ -284,34 +275,20 @@ Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
             console.log("open : ", path);
             while (parseInt(read(fd, exe_buf, 512)) !== 0) {
                 let buffer = exe_buf.readCString();
-                //  console.warn(buffer)
-                buffer = buffer.replaceAll("frida-agent-64.so", "StaySafeStayHappy")
-                    .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
-                    .replaceAll("re.frida.server", "StaySafeStayHappy")
-                    .replaceAll("frida-helper-32", "StaySafeStayHappy")
-                    .replaceAll("frida-helper", "StaySafeStayHappy")
-                    .replaceAll("pool-frida", "StaySafeStayHappy")
-                    .replaceAll("frida", "StaySafeStayHappy")
-                    .replaceAll("/data/local/tmp", "/data")
-                    .replaceAll("frida-server", "StaySafeStayHappy")
-                    .replaceAll("linjector", "StaySafeStayHappy")
-                    .replaceAll("gum-js-loop", "StaySafeStayHappy")
-                    .replaceAll("frida_agent_main", "StaySafeStayHappy")
-                    .replaceAll("gmain", "StaySafeStayHappy")
-                    .replaceAll("frida-agent", "StaySafeStayHappy");
+                detection_strs.forEach(str => {
+                    buffer = buffer.replaceAll(str, "StaySafeStayHappy");
+                });
+                // console.warn(buffer)
                 exe.write(buffer);
             }
             return open(Memory.allocUtf8String(fake_exe), flag);
         } else if (path.includes("mounts")) {
             console.log("open : ", path);
             while (parseInt(read(fd, mounts_buf, 512)) !== 0) {
-                const buffer = mounts_buf.readCString()
-                    .replaceAll("magisk", "StaySafeStayHappy")
-                    .replaceAll("/sbin/.magisk", "StaySafeStayHappy")
-                    .replaceAll("libriru", "StaySafeStayHappy")
-                    .replaceAll("xposed", "StaySafeStayHappy")
-                    .replaceAll("mirror", "StaySafeStayHappy")
-                    .replaceAll("system_root", "StaySafeStayHappy");
+                let buffer = mounts_buf.readCString()
+                detection_strs.forEach(str => {
+                    buffer = buffer.replaceAll(str, "StaySafeStayHappy");
+                });
                 mounts.write(buffer);
                 // console.log("buffer : ", buffer);                                     
             }
@@ -340,29 +317,10 @@ Interceptor.replace(open_ptr, new NativeCallback(function(pathname, flag) {
 
 Interceptor.replace(fgets_ptr, new NativeCallback(function(buf, size, fp) {
     // const retval = fgets(buf, size, fp);
-    const buffer = buf.readCString()
-        .replaceAll("re.frida.server", "FakingGets")
-        .replaceAll("frida-agent-64.so", "FakingGets")
-        .replaceAll("rida-agent-64.so", "FakingGets")
-        .replaceAll("agent-64.so", "FakingGets")
-        .replaceAll("frida-agent-32.so", "FakingGets")
-        .replaceAll("frida-helper-32", "FakingGets")
-        .replaceAll("frida-helper", "FakingGets")
-        .replaceAll("frida-agent", "FakingGets")
-        .replaceAll("pool-frida", "FakingGets")
-        .replaceAll("frida", "FakingGets")
-        .replaceAll("/data/local/tmp", "/data")
-        .replaceAll("server", "FakingGets")
-        .replaceAll("frida-server", "FakingGets")
-        .replaceAll("linjector", "FakingGets")
-        .replaceAll("gum-js-loop", "FakingGets")
-        .replaceAll("frida_agent_main", "FakingGets")
-        .replaceAll("gmain", "FakingGets")
-        .replaceAll("magisk", "FakingGets")
-        .replaceAll(".magisk", "FakingGets")
-        .replaceAll("/sbin/.magisk", "FakingGets")
-        .replaceAll("libriru", "FakingGets")
-        .replaceAll("xposed", "FakingGets");
+    let buffer = buf.readCString();
+    detection_strs.forEach(str => {
+        buffer = buffer.replaceAll(str, "FakingGets");
+    });
     buf.writeUtf8String(buffer);
     // console.log(buf.readCString());
     return fgets(buf, size, fp);
@@ -372,20 +330,7 @@ Interceptor.replace(fgets_ptr, new NativeCallback(function(buf, size, fp) {
 Interceptor.replace(readlink_ptr, new NativeCallback(function(pathname, buffer, bufsize) {
     const retval = readlink(pathname, buffer, bufsize);
     const str = buffer.readCString();
-    if (str.includes("frida") ||
-        str.includes("gum-js-loop") ||
-        str.includes("gmain") ||
-        str.includes("linjector") ||
-        str.includes("/data/local/tmp") ||
-        str.includes("pool-frida") ||
-        str.includes("frida_agent_main") ||
-        str.includes("re.frida.server") ||
-        str.includes("frida-agent") ||
-        str.includes("frida-agent-64.so") ||
-        str.includes("frida-agent-32.so") ||
-        str.includes("frida-helper-32.so") ||
-        str.includes("frida-helper-64.so")
-    ) {
+    if (detection_strs.some(frida => str.includes(frida))) {
         console.log(str, "Check in readlink");
         buffer.writeUtf8String("/system/framework/services.jar");
         return readlink(pathname, buffer, bufsize);
@@ -397,20 +342,7 @@ Interceptor.replace(readlink_ptr, new NativeCallback(function(pathname, buffer, 
 Interceptor.replace(readlinkat_ptr, new NativeCallback(function(dirfd, pathname, buffer, bufsize) {
     const retval = readlinkat(dirfd, pathname, buffer, bufsize);
     const str = buffer.readCString();
-    if (str.includes("frida") ||
-        str.includes("gum-js-loop") ||
-        str.includes("gmain") ||
-        str.includes("linjector") ||
-        str.includes("/data/local/tmp") ||
-        str.includes("pool-frida") ||
-        str.includes("frida_agent_main") ||
-        str.includes("re.frida.server") ||
-        str.includes("frida-agent") ||
-        str.includes("frida-agent-64.so") ||
-        str.includes("frida-agent-32.so") ||
-        str.includes("frida-helper-32.so") ||
-        str.includes("frida-helper-64.so")
-    ) {
+    if (detection_strs.some(frida => str.includes(frida))) {
         console.log(str, "Check in readlinkat");
         buffer.writeUtf8String("/system/framework/services.jar");
         return readlinkat(dirfd, pathname, buffer, bufsize);
@@ -424,23 +356,7 @@ Interceptor.attach(Module.findExportByName(null, "strstr"), {
         this.frida = false;
         const str1 = args[0].readCString();
         const str2 = args[1].readCString();
-        if (str1.includes("frida") || str2.includes("frida") ||
-            str1.includes("gum-js-loop") || str2.includes("gum-js-loop") ||
-            str1.includes("gmain") || str2.includes("gmain") ||
-            str1.includes("linjector") || str2.includes("linjector") ||
-            str1.includes("/data/local/tmp") || str2.includes("/data/local/tmp") ||
-            str1.includes("pool-frida") || str2.includes("pool-frida") ||
-            str1.includes("frida_agent_main") || str2.includes("frida_agent_main") ||
-            str1.includes("re.frida.server") || str2.includes("re.frida.server") ||
-            str1.includes("frida-agent") || str2.includes("frida-agent") ||
-            str1.includes("frida-agent-64.so") || str2.includes("frida-agent-64.so") ||
-            str1.includes("frida-agent-32.so") || str2.includes("frida-agent-32.so") ||
-            str1.includes("frida-helper-32.so") || str2.includes("frida-helper-32.so") ||
-            str1.includes("frida-helper-64.so") || str2.includes("frida-helper-64.so") ||
-            str1.includes("/sbin/.magisk") || str2.includes("/sbin/.magisk") ||
-            str1.includes("libriru") || str2.includes("libriru") ||
-            str1.includes("magisk") || str2.includes("magisk")
-        ) {
+        if (detection_strs.some(frida => str1.includes(frida) || str2.includes(frida))) {
             this.frida = true;
             console.log("strstr : ", str1, str2);
         }
@@ -459,30 +375,10 @@ Interceptor.attach(Module.findExportByName(null, "strstr"), {
 Interceptor.attach(read_ptr, {
     onEnter: function(args) {
         try {
-            const buffer = args[1].readCString()
-                .replaceAll("frida", "StaySafeStayHappy")
-                .replaceAll("re.frida.server", "StaySafeStayHappy")
-                .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
-                .replaceAll("rida-agent-64.so", "StaySafeStayHappy")
-                .replaceAll("agent-64.so", "StaySafeStayHappy")
-                .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
-                .replaceAll("frida-helper-32", "StaySafeStayHappy")
-                .replaceAll("frida-helper", "StaySafeStayHappy")
-                .replaceAll("frida-agent", "StaySafeStayHappy")
-                .replaceAll("pool-frida", "StaySafeStayHappy")
-                .replaceAll("frida", "StaySafeStayHappy")
-                .replaceAll("/data/local/tmp", "/data")
-                .replaceAll("server", "StaySafeStayHappy")
-                .replaceAll("frida-server", "StaySafeStayHappy")
-                .replaceAll("linjector", "StaySafeStayHappy")
-                .replaceAll("gum-js-loop", "StaySafeStayHappy")
-                .replaceAll("frida_agent_main", "StaySafeStayHappy")
-                .replaceAll("gmain", "StaySafeStayHappy")
-                .replaceAll("magisk", "StaySafeStayHappy")
-                .replaceAll(".magisk", "StaySafeStayHappy")
-                .replaceAll("/sbin/.magisk", "StaySafeStayHappy")
-                .replaceAll("libriru", "StaySafeStayHappy")
-                .replaceAll("xposed", "StaySafeStayHappy");
+            let buffer = args[1].readCString();
+            detection_strs.forEach(str => {
+                buffer = buffer.replaceAll(str, "StaySafeStayHappy");
+            });
             args[1].writeUtf8String(buffer);
         }
     } catch (e) {
@@ -501,34 +397,12 @@ if (Process.arch.includes("64")) {
             if (path.includes("maps")) {
                 // console.log("open64 : ", pathname.readCString()) 
                 while (parseInt(read(fd, map_open64_buf, 512)) !== 0) {
-                    const buffer = maps_open64_buf.readCString()
-                        .replaceAll("/data/local/tmp/re.frida.server/frida-agent-64.so", "FakingMaps")
-                        .replaceAll("re.frida.server", "FakingMaps")
-                        .replaceAll("frida-agent-64.so", "FakingMaps")
-                        .replaceAll("rida-agent-64.so", "FakingMaps")
-                        .replaceAll("agent-64.so", "FakingMaps")
-                        .replaceAll("frida-agent-32.so", "FakingMaps")
-                        .replaceAll("frida-helper-32", "FakingMaps")
-                        .replaceAll("frida-helper", "FakingMaps")
-                        .replaceAll("frida-agent", "FakingMaps")
-                        .replaceAll("pool-frida", "FakingMaps")
-                        .replaceAll("frida", "FakingMaps")
-                        .replaceAll("frida-", "FakingMaps")
-                        .replaceAll("/data/local/tmp", "/data")
-                        .replaceAll("server", "FakingMaps")
-                        .replaceAll("frida-server", "FakingMaps")
-                        .replaceAll("linjector", "FakingMaps")
-                        .replaceAll("gum-js-loop", "FakingMaps")
-                        .replaceAll("frida_agent_main", "FakingMaps")
-                        .replaceAll("gmain", "FakingMaps")
-                        .replaceAll("frida", "FakingMaps")
-                        .replaceAll("magisk", "FakingMaps")
-                        .replaceAll(".magisk", "FakingMaps")
-                        .replaceAll("/sbin/.magisk", "FakingMaps")
-                        .replaceAll("libriru", "FakingMaps")
-                        .replaceAll("xposed", "FakingMaps");
+                    let buffer = maps_open64_buf.readCString();
+                    detection_strs.forEach(str => {
+                        buffer = buffer.replaceAll(str, "FakingMaps");
+                    });
                     maps.write(buffer);
-                    console.log("buffer : ", buffer);
+                    // console.log("buffer : ", buffer);
                 }
                 return open64(Memory.allocUtf8String(fake_maps), flag);
             }
@@ -543,42 +417,14 @@ Interceptor.replace(memcpy_ptr, new NativeCallback(function(dest, src, len) {
     const str2 = src.readCString();
     if (str1 != null && str2 != null && (str1.includes("frida") || str2.includes("frida"))) {
         // console.warn("memcpy : ", str1, str2);
-        const buffer = str1
-            .replaceAll("re.frida.server", "StaySafeStayHappy")
-            .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
-            .replaceAll("rida-agent-64.so", "StaySafeStayHappy")
-            .replaceAll("agent-64.so", "StaySafeStayHappy")
-            .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
-            .replaceAll("frida-helper-32", "StaySafeStayHappy")
-            .replaceAll("frida-helper", "StaySafeStayHappy")
-            .replaceAll("frida-agent", "StaySafeStayHappy")
-            .replaceAll("pool-frida", "StaySafeStayHappy")
-            .replaceAll("frida", "StaySafeStayHappy")
-            .replaceAll("/data/local/tmp", "/data")
-            .replaceAll("server", "StaySafeStayHappy")
-            .replaceAll("frida-server", "StaySafeStayHappy")
-            .replaceAll("linjector", "StaySafeStayHappy")
-            .replaceAll("gum-js-loop", "StaySafeStayHappy")
-            .replaceAll("frida_agent_main", "StaySafeStayHappy")
-            .replaceAll("gmain", "StaySafeStayHappy");
-        const buffer2 = str2
-            .replaceAll("re.frida.server", "StaySafeStayHappy")
-            .replaceAll("frida-agent-64.so", "StaySafeStayHappy")
-            .replaceAll("rida-agent-64.so", "StaySafeStayHappy")
-            .replaceAll("agent-64.so", "StaySafeStayHappy")
-            .replaceAll("frida-agent-32.so", "StaySafeStayHappy")
-            .replaceAll("frida-helper-32", "StaySafeStayHappy")
-            .replaceAll("frida-helper", "StaySafeStayHappy")
-            .replaceAll("frida-agent", "StaySafeStayHappy")
-            .replaceAll("pool-frida", "StaySafeStayHappy")
-            .replaceAll("frida", "StaySafeStayHappy")
-            .replaceAll("/data/local/tmp", "/data")
-            .replaceAll("server", "StaySafeStayHappy")
-            .replaceAll("frida-server", "StaySafeStayHappy")
-            .replaceAll("linjector", "StaySafeStayHappy")
-            .replaceAll("gum-js-loop", "StaySafeStayHappy")
-            .replaceAll("frida_agent_main", "StaySafeStayHappy")
-            .replaceAll("gmain", "StaySafeStayHappy");
+        const buffer = str1;
+        detection_strs.forEach(str => {
+            buffer = buffer.replaceAll(str, "StaySafeStayHappy");
+        });
+        const buffer2 = str2;
+        detection_strs.forEach(str => {
+            buffer2 = buffer2.replaceAll(str, "StaySafeStayHappy");
+        });
         dest.writeUtf8String(buffer);
         src.writeUtf8String(buffer2);
         // console.log(buffer, buffer2);
